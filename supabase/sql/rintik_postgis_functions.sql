@@ -1,4 +1,4 @@
--- RINTIK - Backup definisi 14 fungsi PostGIS dari Supabase
+-- RINTIK - Backup definisi 15 fungsi PostGIS dari Supabase
 -- Sumber: hasil pg_get_functiondef yang diekspor dari database aktif.
 -- File ini hanya berisi fungsi, BUKAN skema tabel, data, RLS, GRANT,
 -- maupun instalasi extension PostGIS.
@@ -1098,3 +1098,165 @@ BEGIN
 END;
 $function$
 ;
+
+-- Marker UMKM berdasarkan area peta, radius, dan filter.
+CREATE OR REPLACE FUNCTION public.get_umkm_map_radius_geojson(p_min_lng double precision, p_min_lat double precision, p_max_lng double precision, p_max_lat double precision, p_latitude double precision, p_longitude double precision, p_radius double precision, p_kategori text DEFAULT NULL::text, p_kecamatan text DEFAULT NULL::text, p_kelurahan text DEFAULT NULL::text, p_search text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    area_peta extensions.geometry;
+    titik_pusat extensions.geography;
+    hasil JSONB;
+BEGIN
+    -- Validasi area peta
+    IF p_min_lng IS NULL
+       OR p_min_lat IS NULL
+       OR p_max_lng IS NULL
+       OR p_max_lat IS NULL
+       OR p_min_lng NOT BETWEEN -180 AND 180
+       OR p_max_lng NOT BETWEEN -180 AND 180
+       OR p_min_lat NOT BETWEEN -90 AND 90
+       OR p_max_lat NOT BETWEEN -90 AND 90
+       OR p_min_lng >= p_max_lng
+       OR p_min_lat >= p_max_lat
+    THEN
+        RAISE EXCEPTION 'Bounding Box tidak valid';
+    END IF;
+
+    -- Batasi ukuran area peta
+    IF p_max_lng - p_min_lng > 0.5
+       OR p_max_lat - p_min_lat > 0.5
+    THEN
+        RAISE EXCEPTION 'Area peta terlalu luas';
+    END IF;
+
+    -- Validasi titik pusat pencarian
+    IF p_latitude IS NULL
+       OR p_longitude IS NULL
+       OR p_latitude NOT BETWEEN -90 AND 90
+       OR p_longitude NOT BETWEEN -180 AND 180
+    THEN
+        RAISE EXCEPTION 'Koordinat pusat tidak valid';
+    END IF;
+
+    -- Validasi radius dalam meter
+    IF p_radius IS NULL
+       OR p_radius <= 0
+       OR p_radius > 5000
+    THEN
+        RAISE EXCEPTION 'Radius harus antara 0 sampai 5000 meter';
+    END IF;
+
+    -- Validasi filter
+    IF LENGTH(COALESCE(p_kategori, '')) > 100
+       OR LENGTH(COALESCE(p_kecamatan, '')) > 100
+       OR LENGTH(COALESCE(p_kelurahan, '')) > 100
+       OR LENGTH(COALESCE(p_search, '')) > 100
+    THEN
+        RAISE EXCEPTION 'Parameter filter terlalu panjang';
+    END IF;
+
+    IF NULLIF(TRIM(p_kategori), '') IS NOT NULL
+       AND TRIM(p_kategori) NOT IN (
+           'Kuliner',
+           'Jasa',
+           'Teknologi',
+           'Kerajinan',
+           'Fashion'
+       )
+    THEN
+        RAISE EXCEPTION 'Kategori UMKM tidak valid';
+    END IF;
+
+    -- Area peta yang sedang terlihat
+    area_peta := extensions.ST_MakeEnvelope(
+        p_min_lng,
+        p_min_lat,
+        p_max_lng,
+        p_max_lat,
+        4326
+    );
+
+    -- Titik pusat radius
+    titik_pusat := extensions.ST_SetSRID(
+        extensions.ST_MakePoint(
+            p_longitude,
+            p_latitude
+        ),
+        4326
+    )::extensions.geography;
+
+    -- Ambil UMKM yang berada dalam area peta DAN radius
+    SELECT jsonb_build_object(
+        'type', 'FeatureCollection',
+        'features',
+        COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'type', 'Feature',
+                    'geometry',
+                    extensions.ST_AsGeoJSON(u.geom, 6)::jsonb,
+                    'properties',
+                    jsonb_build_object(
+                        'id_umkm', u.id_umkm,
+                        'nama_umkm', u.nama_umkm,
+                        'kategori', u.kategori,
+                        'kecamatan', u.kecamatan,
+                        'kelurahan', u.kelurahan
+                    )
+                )
+                ORDER BY u.id_umkm
+            ),
+            '[]'::jsonb
+        )
+    )
+    INTO hasil
+    FROM public.umkm AS u
+    WHERE u.geom IS NOT NULL
+
+      -- Harus berada dalam area peta
+      AND extensions.ST_Intersects(
+          u.geom,
+          area_peta
+      )
+
+      -- Harus berada dalam radius yang dipilih
+      AND extensions.ST_DWithin(
+          u.geom::extensions.geography,
+          titik_pusat,
+          p_radius
+      )
+
+      -- Filter kategori
+      AND (
+          NULLIF(TRIM(p_kategori), '') IS NULL
+          OR u.kategori = TRIM(p_kategori)
+      )
+
+      -- Filter kecamatan
+      AND (
+          NULLIF(TRIM(p_kecamatan), '') IS NULL
+          OR u.kecamatan = TRIM(p_kecamatan)
+      )
+
+      -- Filter kelurahan
+      AND (
+          NULLIF(TRIM(p_kelurahan), '') IS NULL
+          OR u.kelurahan = TRIM(p_kelurahan)
+      )
+
+      -- Pencarian nama
+      AND (
+          NULLIF(TRIM(p_search), '') IS NULL
+          OR STRPOS(
+              LOWER(u.nama_umkm),
+              LOWER(TRIM(p_search))
+          ) > 0
+      );
+
+    RETURN hasil;
+END;
+$function$;

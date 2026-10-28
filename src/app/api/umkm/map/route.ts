@@ -32,13 +32,13 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
 
-        // Membaca koordinat area peta
+        // Parameter area peta
         const minLngParam = searchParams.get("min_lng");
         const minLatParam = searchParams.get("min_lat");
         const maxLngParam = searchParams.get("max_lng");
         const maxLatParam = searchParams.get("max_lat");
 
-        // Membaca parameter filter UMKM
+        // Parameter filter
         const kategori = (
             searchParams.get("kategori") ?? ""
         ).trim();
@@ -55,7 +55,12 @@ export async function GET(request: NextRequest) {
             searchParams.get("search") ?? ""
         ).trim();
 
-        // Validasi parameter Bounding Box wajib
+        // Parameter radius (opsional)
+        const latitudeParam = searchParams.get("latitude");
+        const longitudeParam = searchParams.get("longitude");
+        const radiusParam = searchParams.get("radius");
+
+        // Validasi Bounding Box wajib
         if (
             minLngParam === null ||
             minLatParam === null ||
@@ -75,13 +80,12 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Mengubah koordinat menjadi angka
         const minLng = Number(minLngParam);
         const minLat = Number(minLatParam);
         const maxLng = Number(maxLngParam);
         const maxLat = Number(maxLatParam);
 
-        // Validasi koordinat dan urutan Bounding Box
+        // Validasi koordinat area peta
         if (
             !Number.isFinite(minLng) ||
             !Number.isFinite(minLat) ||
@@ -121,7 +125,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Validasi panjang parameter filter
+        // Validasi panjang filter
         if (
             kategori.length > 100 ||
             kecamatan.length > 100 ||
@@ -138,7 +142,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Validasi kategori UMKM
+        // Validasi kategori
         if (
             kategori !== "" &&
             !KATEGORI_VALID.includes(kategori)
@@ -152,27 +156,109 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Mengambil marker dari fungsi PostGIS terbaru
-        const { data, error } = await supabase.rpc(
-            "get_umkm_map_filtered_geojson",
-            {
-                p_min_lng: minLng,
-                p_min_lat: minLat,
-                p_max_lng: maxLng,
-                p_max_lat: maxLat,
-                p_kategori: kategori || null,
-                p_kecamatan: kecamatan || null,
-                p_kelurahan: kelurahan || null,
-                p_search: search || null,
+        // Radius hanya aktif jika ada parameter radius
+        const adaParameterRadius =
+            latitudeParam !== null ||
+            longitudeParam !== null ||
+            radiusParam !== null;
+
+        let latitude: number | null = null;
+        let longitude: number | null = null;
+        let radius: number | null = null;
+
+        if (adaParameterRadius) {
+            // Ketiga parameter harus diisi bersama
+            if (
+                latitudeParam === null ||
+                longitudeParam === null ||
+                radiusParam === null ||
+                latitudeParam.trim() === "" ||
+                longitudeParam.trim() === "" ||
+                radiusParam.trim() === ""
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "Latitude, longitude, dan radius wajib diisi lengkap",
+                    },
+                    { status: 400 }
+                );
             }
+
+            latitude = Number(latitudeParam);
+            longitude = Number(longitudeParam);
+            radius = Number(radiusParam);
+
+            // Validasi titik pusat
+            if (
+                !Number.isFinite(latitude) ||
+                !Number.isFinite(longitude) ||
+                latitude < -90 ||
+                latitude > 90 ||
+                longitude < -180 ||
+                longitude > 180
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Koordinat pusat tidak valid",
+                    },
+                    { status: 400 }
+                );
+            }
+
+            // Validasi radius dalam meter
+            if (
+                !Number.isFinite(radius) ||
+                radius <= 0 ||
+                radius > 5000
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "Radius harus lebih dari 0 dan maksimal 5000 meter",
+                    },
+                    { status: 400 }
+                );
+            }
+        }
+
+        // Parameter umum untuk kedua fungsi PostGIS
+        const parameterUmum = {
+            p_min_lng: minLng,
+            p_min_lat: minLat,
+            p_max_lng: maxLng,
+            p_max_lat: maxLat,
+            p_kategori: kategori || null,
+            p_kecamatan: kecamatan || null,
+            p_kelurahan: kelurahan || null,
+            p_search: search || null,
+        };
+
+        // Pilih fungsi sesuai ada atau tidaknya radius
+        const namaFungsi = adaParameterRadius
+            ? "get_umkm_map_radius_geojson"
+            : "get_umkm_map_filtered_geojson";
+
+        const parameterRpc = adaParameterRadius
+            ? {
+                ...parameterUmum,
+                p_latitude: latitude,
+                p_longitude: longitude,
+                p_radius: radius,
+            }
+            : parameterUmum;
+
+        // Mengambil data dari Supabase PostGIS
+        const { data, error } = await supabase.rpc(
+            namaFungsi,
+            parameterRpc
         );
 
-        // Memeriksa error Supabase
         if (error) {
-            console.error(
-                "RINTIK marker map error:",
-                error
-            );
+            console.error("RINTIK marker map error:", error);
 
             return NextResponse.json(
                 {
@@ -183,11 +269,11 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Memastikan format respons sesuai GeoJSON
         const geojson = data as
             | GeoJSONFeatureCollection
             | null;
 
+        // Validasi format GeoJSON
         if (
             !geojson ||
             geojson.type !== "FeatureCollection" ||
@@ -202,7 +288,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Mengirim hasil ke frontend
+        // Respons berhasil
         return NextResponse.json({
             success: true,
             message: "Marker UMKM berhasil diambil",
@@ -212,6 +298,9 @@ export async function GET(request: NextRequest) {
                 kecamatan,
                 kelurahan,
                 search,
+                latitude,
+                longitude,
+                radius,
             },
 
             bbox: {
@@ -224,12 +313,8 @@ export async function GET(request: NextRequest) {
             jumlah: geojson.features.length,
             data: geojson,
         });
-
     } catch (error) {
-        console.error(
-            "RINTIK API map error:",
-            error
-        );
+        console.error("RINTIK API map error:", error);
 
         return NextResponse.json(
             {
