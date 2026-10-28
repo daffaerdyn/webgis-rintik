@@ -65,5 +65,9 @@ TO anon, authenticated;
 -- Fungsi SECURITY INVOKER tetap memerlukan hak akses tabel untuk role pemanggil.
 -- Saat ini authenticated tidak dapat SELECT langsung pada tabel; ini memang
 -- sesuai konfigurasi yang teramati dan kebutuhan aplikasi tanpa login.
--- File ini tidak memuat CREATE TABLE, data awal, ekstensi PostGIS, atau
--- pengaturan izin USAGE schema pada instalasi Supabase yang benar-benar baru.
+-- File ini tidak memuat CREATE TABLE, data awal, atau instalasi PostGIS.
+-- Izin USAGE schema extensions diatur pada bagian bawah file ini.
+
+
+-- Izin menggunakan schema PostGIS untuk fungsi spasial
+GRANT USAGE ON SCHEMA extensions TO anon, authenticated;
