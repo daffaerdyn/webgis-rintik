@@ -1,4 +1,4 @@
--- RINTIK - Backup definisi 11 fungsi PostGIS dari Supabase
+-- RINTIK - Backup definisi 12 fungsi PostGIS dari Supabase
 -- Sumber: hasil pg_get_functiondef yang diekspor dari database aktif.
 -- File ini hanya berisi fungsi, BUKAN skema tabel, data, RLS, GRANT,
 -- maupun instalasi extension PostGIS.
@@ -761,5 +761,136 @@ AS $function$
             )
         )
     );
+$function$
+;
+
+-- Fungsi ke-12: filter UMKM berdasarkan radius, kategori, wilayah, dan kata kunci.
+CREATE OR REPLACE FUNCTION public.search_umkm_in_radius(p_latitude double precision, p_longitude double precision, p_radius_m double precision, p_kategori text DEFAULT NULL::text, p_kecamatan text DEFAULT NULL::text, p_kelurahan text DEFAULT NULL::text, p_search text DEFAULT NULL::text, p_page integer DEFAULT 1, p_page_size integer DEFAULT 20)
+ RETURNS TABLE(id_umkm character varying, nama_umkm text, kategori text, kecamatan text, kelurahan text, latitude double precision, longitude double precision, jarak_meter numeric, total_data bigint)
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    titik extensions.geography;
+BEGIN
+    -- Validasi koordinat
+    IF p_latitude IS NULL
+       OR p_longitude IS NULL
+       OR p_latitude NOT BETWEEN -90 AND 90
+       OR p_longitude NOT BETWEEN -180 AND 180
+    THEN
+        RAISE EXCEPTION 'Koordinat tidak valid';
+    END IF;
+
+    -- Validasi radius maksimal 5 km
+    IF p_radius_m IS NULL
+       OR p_radius_m <= 0
+       OR p_radius_m > 5000
+    THEN
+        RAISE EXCEPTION
+            'Radius harus lebih dari 0 dan maksimal 5000 meter';
+    END IF;
+
+    -- Validasi pagination
+    IF p_page IS NULL
+       OR p_page < 1
+       OR p_page_size IS NULL
+       OR p_page_size NOT BETWEEN 1 AND 100
+       OR (p_page::BIGINT - 1) * p_page_size > 2147483647
+    THEN
+        RAISE EXCEPTION 'Parameter pagination tidak valid';
+    END IF;
+
+    -- Validasi panjang filter
+    IF LENGTH(COALESCE(p_search, '')) > 100
+       OR LENGTH(COALESCE(p_kategori, '')) > 100
+       OR LENGTH(COALESCE(p_kecamatan, '')) > 100
+       OR LENGTH(COALESCE(p_kelurahan, '')) > 100
+    THEN
+        RAISE EXCEPTION 'Parameter filter terlalu panjang';
+    END IF;
+
+    -- Validasi kategori RINTIK
+    IF NULLIF(TRIM(p_kategori), '') IS NOT NULL
+       AND TRIM(p_kategori) NOT IN (
+           'Kuliner',
+           'Jasa',
+           'Teknologi',
+           'Kerajinan',
+           'Fashion'
+       )
+    THEN
+        RAISE EXCEPTION 'Kategori UMKM tidak valid';
+    END IF;
+
+    -- Membuat titik lokasi pengguna
+    titik := extensions.ST_SetSRID(
+        extensions.ST_MakePoint(
+            p_longitude,
+            p_latitude
+        ),
+        4326
+    )::extensions.geography;
+
+    -- Mengambil UMKM sesuai radius dan filter
+    RETURN QUERY
+    SELECT
+        u.id_umkm,
+        u.nama_umkm,
+        u.kategori,
+        u.kecamatan,
+        u.kelurahan,
+        u.latitude,
+        u.longitude,
+
+        ROUND(
+            extensions.ST_Distance(
+                u.geom::extensions.geography,
+                titik
+            )::NUMERIC,
+            2
+        ) AS jarak_meter,
+
+        COUNT(*) OVER() AS total_data
+
+    FROM public.umkm AS u
+
+    WHERE u.geom IS NOT NULL
+
+      AND extensions.ST_DWithin(
+          u.geom::extensions.geography,
+          titik,
+          p_radius_m
+      )
+
+      AND (
+          NULLIF(TRIM(p_kategori), '') IS NULL
+          OR u.kategori = TRIM(p_kategori)
+      )
+
+      AND (
+          NULLIF(TRIM(p_kecamatan), '') IS NULL
+          OR u.kecamatan = TRIM(p_kecamatan)
+      )
+
+      AND (
+          NULLIF(TRIM(p_kelurahan), '') IS NULL
+          OR u.kelurahan = TRIM(p_kelurahan)
+      )
+
+      AND (
+          NULLIF(TRIM(p_search), '') IS NULL
+          OR STRPOS(
+              LOWER(u.nama_umkm),
+              LOWER(TRIM(p_search))
+          ) > 0
+      )
+
+    ORDER BY jarak_meter ASC, u.id_umkm ASC
+
+    LIMIT p_page_size
+    OFFSET (p_page - 1) * p_page_size;
+END;
 $function$
 ;

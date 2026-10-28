@@ -4,6 +4,18 @@ import { supabase } from "@/lib/supabase";
 
 const PAGE_SIZE = 20;
 
+type UmkmRadiusRow = {
+    id_umkm: string;
+    nama_umkm: string;
+    kategori: string | null;
+    kecamatan: string | null;
+    kelurahan: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    jarak_meter: number;
+    total_data: number;
+};
+
 const KATEGORI_VALID = [
     "Kuliner",
     "Jasa",
@@ -16,12 +28,17 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
 
-        // Membaca parameter dari URL
+        // Membaca parameter URL
         const pageParam = searchParams.get("page") ?? "1";
         const search = (searchParams.get("search") ?? "").trim();
         const kategori = (searchParams.get("kategori") ?? "").trim();
         const kecamatan = (searchParams.get("kecamatan") ?? "").trim();
         const kelurahan = (searchParams.get("kelurahan") ?? "").trim();
+
+        // Parameter filter berdasarkan lokasi
+        const latitudeParam = searchParams.get("latitude");
+        const longitudeParam = searchParams.get("longitude");
+        const radiusParam = searchParams.get("radius");
 
         const page = Number(pageParam);
 
@@ -40,7 +57,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Validasi panjang parameter
+        // Validasi panjang filter
         if (
             search.length > 100 ||
             kategori.length > 100 ||
@@ -84,7 +101,173 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Query utama Supabase
+        // Memeriksa apakah filter radius digunakan
+        const menggunakanRadius =
+            latitudeParam !== null ||
+            longitudeParam !== null ||
+            radiusParam !== null;
+
+        let latitude: number | null = null;
+        let longitude: number | null = null;
+        let radius: number | null = null;
+
+        if (menggunakanRadius) {
+            // Ketiga parameter wajib diisi bersama
+            if (
+                latitudeParam === null ||
+                longitudeParam === null ||
+                radiusParam === null ||
+                latitudeParam.trim() === "" ||
+                longitudeParam.trim() === "" ||
+                radiusParam.trim() === ""
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "Latitude, longitude, dan radius wajib diisi bersama",
+                    },
+                    { status: 400 }
+                );
+            }
+
+            latitude = Number(latitudeParam);
+            longitude = Number(longitudeParam);
+            radius = Number(radiusParam);
+
+            // Validasi koordinat dan radius
+            if (
+                !Number.isFinite(latitude) ||
+                !Number.isFinite(longitude) ||
+                !Number.isFinite(radius) ||
+                latitude < -90 ||
+                latitude > 90 ||
+                longitude < -180 ||
+                longitude > 180 ||
+                radius <= 0 ||
+                radius > 5000
+            ) {
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "Koordinat tidak valid atau radius di luar batas 1-5000 meter",
+                    },
+                    { status: 400 }
+                );
+            }
+        }
+
+        const filter = {
+            search,
+            kategori,
+            kecamatan,
+            kelurahan,
+            latitude,
+            longitude,
+            radius,
+        };
+
+        // FILTER BERDASARKAN RADIUS
+        if (menggunakanRadius) {
+            const { data, error } = await supabase.rpc(
+                "search_umkm_in_radius",
+                {
+                    p_latitude: latitude,
+                    p_longitude: longitude,
+                    p_radius_m: radius,
+                    p_kategori: kategori || null,
+                    p_kecamatan: kecamatan || null,
+                    p_kelurahan: kelurahan || null,
+                    p_search: search || null,
+                    p_page: page,
+                    p_page_size: PAGE_SIZE,
+                }
+            );
+
+            if (error) {
+                console.error("RINTIK radius error:", error);
+
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message: "Gagal mencari UMKM dalam radius",
+                    },
+                    { status: 502 }
+                );
+            }
+
+            const hasil: UmkmRadiusRow[] = data ?? [];
+
+            // Total dihitung oleh fungsi PostGIS
+            let totalData = Number(
+                hasil[0]?.total_data ?? 0
+            );
+
+            // Jika halaman kosong, periksa total dari halaman pertama
+            if (hasil.length === 0 && page > 1) {
+                const { data: dataAwal, error: errorAwal } =
+                    await supabase.rpc(
+                        "search_umkm_in_radius",
+                        {
+                            p_latitude: latitude,
+                            p_longitude: longitude,
+                            p_radius_m: radius,
+                            p_kategori: kategori || null,
+                            p_kecamatan: kecamatan || null,
+                            p_kelurahan: kelurahan || null,
+                            p_search: search || null,
+                            p_page: 1,
+                            p_page_size: 1,
+                        }
+                    );
+
+                if (errorAwal) {
+                    console.error(
+                        "RINTIK total radius error:",
+                        errorAwal
+                    );
+
+                    return NextResponse.json(
+                        {
+                            success: false,
+                            message: "Gagal menghitung total UMKM",
+                        },
+                        { status: 502 }
+                    );
+                }
+
+                totalData = Number(
+                    dataAwal?.[0]?.total_data ?? 0
+                );
+            }
+
+            return NextResponse.json({
+                success: true,
+                message: "Data UMKM dalam radius berhasil diambil",
+                filter,
+                pagination: {
+                    halaman: page,
+                    per_halaman: PAGE_SIZE,
+                    total_data: totalData,
+                    total_halaman: Math.ceil(
+                        totalData / PAGE_SIZE
+                    ),
+                },
+                data: hasil.map((item) => ({
+                    id_umkm: item.id_umkm,
+                    nama_umkm: item.nama_umkm,
+                    kategori: item.kategori,
+                    kecamatan: item.kecamatan,
+                    kelurahan: item.kelurahan,
+                    latitude: item.latitude,
+                    longitude: item.longitude,
+                    jarak_meter: item.jarak_meter,
+                })),
+            });
+        }
+
+        // QUERY NORMAL TANPA FILTER RADIUS
         let query = supabase
             .from("umkm")
             .select(
@@ -105,7 +288,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Filter kategori UMKM
+        // Filter kategori
         if (kategori !== "") {
             query = query.eq("kategori", kategori);
         }
@@ -120,7 +303,6 @@ export async function GET(request: NextRequest) {
             query = query.eq("kelurahan", kelurahan);
         }
 
-        // Mengambil data dengan pagination
         const { data, error, count } = await query
             .order("id_umkm", { ascending: true })
             .range(mulai, akhir);
@@ -137,18 +319,10 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Mengirim hasil ke frontend
         return NextResponse.json({
             success: true,
             message: "Data UMKM berhasil diambil",
-
-            filter: {
-                search,
-                kategori,
-                kecamatan,
-                kelurahan,
-            },
-
+            filter,
             pagination: {
                 halaman: page,
                 per_halaman: PAGE_SIZE,
@@ -157,7 +331,6 @@ export async function GET(request: NextRequest) {
                     (count ?? 0) / PAGE_SIZE
                 ),
             },
-
             data: data ?? [],
         });
 
