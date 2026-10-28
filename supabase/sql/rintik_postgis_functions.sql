@@ -1,4 +1,4 @@
--- RINTIK - Backup definisi 12 fungsi PostGIS dari Supabase
+-- RINTIK - Backup definisi 14 fungsi PostGIS dari Supabase
 -- Sumber: hasil pg_get_functiondef yang diekspor dari database aktif.
 -- File ini hanya berisi fungsi, BUKAN skema tabel, data, RLS, GRANT,
 -- maupun instalasi extension PostGIS.
@@ -891,6 +891,210 @@ BEGIN
 
     LIMIT p_page_size
     OFFSET (p_page - 1) * p_page_size;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_umkm_map_filtered_geojson(p_min_lng double precision, p_min_lat double precision, p_max_lng double precision, p_max_lat double precision, p_kategori text DEFAULT NULL::text, p_kecamatan text DEFAULT NULL::text, p_kelurahan text DEFAULT NULL::text, p_search text DEFAULT NULL::text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    area_peta extensions.geometry;
+    hasil JSONB;
+BEGIN
+    -- Validasi koordinat Bounding Box
+    IF p_min_lng IS NULL
+       OR p_min_lat IS NULL
+       OR p_max_lng IS NULL
+       OR p_max_lat IS NULL
+       OR p_min_lng NOT BETWEEN -180 AND 180
+       OR p_max_lng NOT BETWEEN -180 AND 180
+       OR p_min_lat NOT BETWEEN -90 AND 90
+       OR p_max_lat NOT BETWEEN -90 AND 90
+       OR p_min_lng >= p_max_lng
+       OR p_min_lat >= p_max_lat
+    THEN
+        RAISE EXCEPTION 'Bounding Box tidak valid';
+    END IF;
+
+    -- Membatasi ukuran area peta
+    IF p_max_lng - p_min_lng > 0.5
+       OR p_max_lat - p_min_lat > 0.5
+    THEN
+        RAISE EXCEPTION 'Area peta terlalu luas';
+    END IF;
+
+    -- Validasi panjang parameter filter
+    IF LENGTH(COALESCE(p_kategori, '')) > 100
+       OR LENGTH(COALESCE(p_kecamatan, '')) > 100
+       OR LENGTH(COALESCE(p_kelurahan, '')) > 100
+       OR LENGTH(COALESCE(p_search, '')) > 100
+    THEN
+        RAISE EXCEPTION 'Parameter filter terlalu panjang';
+    END IF;
+
+    -- Validasi kategori UMKM
+    IF NULLIF(TRIM(p_kategori), '') IS NOT NULL
+       AND TRIM(p_kategori) NOT IN (
+           'Kuliner',
+           'Jasa',
+           'Teknologi',
+           'Kerajinan',
+           'Fashion'
+       )
+    THEN
+        RAISE EXCEPTION 'Kategori UMKM tidak valid';
+    END IF;
+
+    -- Membuat area yang terlihat di peta
+    area_peta := extensions.ST_MakeEnvelope(
+        p_min_lng,
+        p_min_lat,
+        p_max_lng,
+        p_max_lat,
+        4326
+    );
+
+    -- Mengambil marker sesuai area dan filter
+    SELECT jsonb_build_object(
+        'type', 'FeatureCollection',
+        'features',
+        COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'type', 'Feature',
+                    'geometry',
+                    extensions.ST_AsGeoJSON(u.geom, 6)::jsonb,
+                    'properties',
+                    jsonb_build_object(
+                        'id_umkm', u.id_umkm,
+                        'nama_umkm', u.nama_umkm,
+                        'kategori', u.kategori,
+                        'kecamatan', u.kecamatan,
+                        'kelurahan', u.kelurahan
+                    )
+                )
+                ORDER BY u.id_umkm
+            ),
+            '[]'::jsonb
+        )
+    )
+    INTO hasil
+    FROM public.umkm AS u
+    WHERE u.geom IS NOT NULL
+
+      AND extensions.ST_Intersects(
+          u.geom,
+          area_peta
+      )
+
+      AND (
+          NULLIF(TRIM(p_kategori), '') IS NULL
+          OR u.kategori = TRIM(p_kategori)
+      )
+
+      AND (
+          NULLIF(TRIM(p_kecamatan), '') IS NULL
+          OR u.kecamatan = TRIM(p_kecamatan)
+      )
+
+      AND (
+          NULLIF(TRIM(p_kelurahan), '') IS NULL
+          OR u.kelurahan = TRIM(p_kelurahan)
+      )
+
+      AND (
+          NULLIF(TRIM(p_search), '') IS NULL
+          OR STRPOS(
+              LOWER(u.nama_umkm),
+              LOWER(TRIM(p_search))
+          ) > 0
+      );
+
+    RETURN hasil;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_umkm_map_geojson(p_min_lng double precision, p_min_lat double precision, p_max_lng double precision, p_max_lat double precision)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+DECLARE
+    area_peta extensions.geometry;
+    hasil JSONB;
+BEGIN
+    -- Validasi Bounding Box
+    IF p_min_lng IS NULL
+       OR p_min_lat IS NULL
+       OR p_max_lng IS NULL
+       OR p_max_lat IS NULL
+       OR p_min_lng NOT BETWEEN -180 AND 180
+       OR p_max_lng NOT BETWEEN -180 AND 180
+       OR p_min_lat NOT BETWEEN -90 AND 90
+       OR p_max_lat NOT BETWEEN -90 AND 90
+       OR p_min_lng >= p_max_lng
+       OR p_min_lat >= p_max_lat
+    THEN
+        RAISE EXCEPTION 'Bounding Box tidak valid';
+    END IF;
+
+    -- Batasi area permintaan
+    IF p_max_lng - p_min_lng > 0.5
+       OR p_max_lat - p_min_lat > 0.5
+    THEN
+        RAISE EXCEPTION 'Area peta terlalu luas';
+    END IF;
+
+    -- Membentuk area yang sedang dilihat pengguna
+    area_peta := extensions.ST_MakeEnvelope(
+        p_min_lng,
+        p_min_lat,
+        p_max_lng,
+        p_max_lat,
+        4326
+    );
+
+    -- Mengambil seluruh marker UMKM dalam area
+    SELECT jsonb_build_object(
+        'type', 'FeatureCollection',
+        'features',
+        COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'type', 'Feature',
+                    'geometry',
+                    extensions.ST_AsGeoJSON(
+                        u.geom, 6
+                    )::jsonb,
+                    'properties',
+                    jsonb_build_object(
+                        'id_umkm', u.id_umkm,
+                        'nama_umkm', u.nama_umkm,
+                        'kategori', u.kategori,
+                        'kecamatan', u.kecamatan,
+                        'kelurahan', u.kelurahan
+                    )
+                )
+                ORDER BY u.id_umkm
+            ),
+            '[]'::jsonb
+        )
+    )
+    INTO hasil
+    FROM public.umkm AS u
+    WHERE u.geom IS NOT NULL
+      AND extensions.ST_Intersects(
+          u.geom,
+          area_peta
+      );
+
+    RETURN hasil;
 END;
 $function$
 ;

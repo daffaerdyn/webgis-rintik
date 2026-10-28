@@ -1,4 +1,4 @@
--- RINTIK - Hak akses tabel dan 12 fungsi PostGIS
+-- RINTIK - Hak akses tabel dan 14 fungsi PostGIS
 -- Jalankan hanya setelah tabel dan fungsi selesai dibuat pada database baru.
 -- Tidak perlu dijalankan lagi pada database Supabase saat ini.
 -- Pengaturan mengikuti pemeriksaan izin 28 Oktober 2026.
@@ -24,7 +24,7 @@ TO anon;
 -- Tabel wilayah tidak boleh dibaca langsung oleh anon / authenticated.
 -- Data wilayah tersedia melalui fungsi get_wilayah_geojson().
 
--- 2. Cabut izin EXECUTE bawaan PUBLIC untuk 12 fungsi RPC.
+-- 2. Cabut izin EXECUTE bawaan PUBLIC untuk 14 fungsi RPC.
 -- Pencabutan izin eksplisit mencegah hak akses yang lebih luas dari kebutuhan.
 REVOKE ALL PRIVILEGES ON FUNCTION
     public.generate_buffer(double precision, double precision, double precision),
@@ -38,7 +38,9 @@ REVOKE ALL PRIVILEGES ON FUNCTION
     public.get_umkm_statistics(),
     public.get_wilayah_geojson(),
     public.is_point_in_bogor(double precision, double precision),
-    public.search_umkm_in_radius(double precision, double precision, double precision, text, text, text, text, integer, integer)
+    public.search_umkm_in_radius(double precision, double precision, double precision, text, text, text, text, integer, integer),
+    public.get_umkm_map_geojson(double precision, double precision, double precision, double precision),
+    public.get_umkm_map_filtered_geojson(double precision, double precision, double precision, double precision, text, text, text, text)
 FROM PUBLIC, anon, authenticated;
 
 -- Sesuai izin Supabase yang telah diperiksa: kedua role dapat EXECUTE.
@@ -54,7 +56,9 @@ GRANT EXECUTE ON FUNCTION
     public.get_umkm_statistics(),
     public.get_wilayah_geojson(),
     public.is_point_in_bogor(double precision, double precision),
-    public.search_umkm_in_radius(double precision, double precision, double precision, text, text, text, text, integer, integer)
+    public.search_umkm_in_radius(double precision, double precision, double precision, text, text, text, text, integer, integer),
+    public.get_umkm_map_geojson(double precision, double precision, double precision, double precision),
+    public.get_umkm_map_filtered_geojson(double precision, double precision, double precision, double precision, text, text, text, text)
 TO anon, authenticated;
 
 -- Catatan:
