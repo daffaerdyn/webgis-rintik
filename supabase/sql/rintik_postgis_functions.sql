@@ -1,4 +1,4 @@
--- RINTIK - Backup definisi 15 fungsi PostGIS dari Supabase
+-- RINTIK - Backup definisi 16 fungsi PostGIS dari Supabase
 -- Sumber: hasil pg_get_functiondef yang diekspor dari database aktif.
 -- File ini hanya berisi fungsi, BUKAN skema tabel, data, RLS, GRANT,
 -- maupun instalasi extension PostGIS.
@@ -1259,4 +1259,74 @@ BEGIN
 
     RETURN hasil;
 END;
+$function$;
+
+-- =====================================================
+-- Fungsi 16: get_umkm_statistics_filtered
+-- Statistik UMKM dengan filter kategori, kecamatan, kelurahan
+-- Dipakai oleh: GET /api/umkm/statistics
+-- =====================================================
+CREATE OR REPLACE FUNCTION public.get_umkm_statistics_filtered(
+    p_kategori  text DEFAULT NULL,
+    p_kecamatan text DEFAULT NULL,
+    p_kelurahan text DEFAULT NULL
+)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO ''
+AS $function$
+    SELECT jsonb_build_object(
+        'filter',
+        jsonb_build_object(
+            'kategori',  p_kategori,
+            'kecamatan', p_kecamatan,
+            'kelurahan', p_kelurahan
+        ),
+
+        'total_umkm',
+        (
+            SELECT COUNT(*)
+            FROM public.umkm u
+            WHERE (p_kategori  IS NULL OR lower(u.kategori)  = lower(p_kategori))
+              AND (p_kecamatan IS NULL OR lower(u.kecamatan) = lower(p_kecamatan))
+              AND (p_kelurahan IS NULL OR lower(u.kelurahan) = lower(p_kelurahan))
+        ),
+
+        'per_kategori',
+        (
+            SELECT COALESCE(
+                jsonb_agg(
+                    jsonb_build_object('kategori', kategori, 'jumlah', jumlah)
+                    ORDER BY jumlah DESC, kategori
+                ),
+                '[]'::jsonb
+            )
+            FROM (
+                SELECT u.kategori, COUNT(*) AS jumlah
+                FROM public.umkm u
+                WHERE (p_kecamatan IS NULL OR lower(u.kecamatan) = lower(p_kecamatan))
+                  AND (p_kelurahan IS NULL OR lower(u.kelurahan) = lower(p_kelurahan))
+                GROUP BY u.kategori
+            ) AS hasil_kategori
+        ),
+
+        'per_kecamatan',
+        (
+            SELECT COALESCE(
+                jsonb_agg(
+                    jsonb_build_object('kecamatan', kecamatan, 'jumlah', jumlah)
+                    ORDER BY jumlah DESC, kecamatan
+                ),
+                '[]'::jsonb
+            )
+            FROM (
+                SELECT u.kecamatan, COUNT(*) AS jumlah
+                FROM public.umkm u
+                WHERE (p_kategori  IS NULL OR lower(u.kategori)  = lower(p_kategori))
+                  AND (p_kelurahan IS NULL OR lower(u.kelurahan) = lower(p_kelurahan))
+                GROUP BY u.kecamatan
+            ) AS hasil_kecamatan
+        )
+    );
 $function$;
