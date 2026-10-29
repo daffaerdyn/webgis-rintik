@@ -308,6 +308,24 @@ export async function GET(request: NextRequest) {
             .range(mulai, akhir);
 
         if (error) {
+            // Firewall Supabase (Cloudflare) memblokir pola yang mirip serangan SQL
+            const diblokirFirewall =
+                typeof error.message === "string" &&
+                error.message.includes("Cloudflare");
+
+            if (diblokirFirewall) {
+                console.warn("RINTIK: pencarian diblokir firewall Supabase");
+
+                return NextResponse.json(
+                    {
+                        success: false,
+                        message:
+                            "Kata pencarian mengandung pola yang tidak diizinkan",
+                    },
+                    { status: 400 }
+                );
+            }
+
             console.error("RINTIK UMKM error:", error);
 
             return NextResponse.json(
