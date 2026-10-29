@@ -72,3 +72,6 @@ TO anon, authenticated;
 
 -- Izin menggunakan schema PostGIS untuk fungsi spasial
 GRANT USAGE ON SCHEMA extensions TO anon, authenticated;
+
+REVOKE ALL ON FUNCTION public.get_umkm_statistics_filtered(text, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_umkm_statistics_filtered(text, text, text) TO anon, authenticated, service_role;
