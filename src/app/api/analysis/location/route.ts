@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-// Kategori UMKM yang digunakan RINTIK
+// Kategori UMKM sesuai dataset RINTIK
 const KATEGORI = [
     "Kuliner",
     "Jasa",
@@ -11,6 +11,77 @@ const KATEGORI = [
     "Fashion",
 ];
 
+// Pengaturan pagination UMKM
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 20;
+
+// Struktur data UMKM
+type Umkm = {
+    id_umkm: string | number;
+    nama_umkm: string;
+    kategori: string;
+    latitude: number;
+    longitude: number;
+    jarak_meter?: number | null;
+};
+
+// Struktur data fasilitas
+type Fasilitas = {
+    jenis_objek: string;
+    jumlah: number;
+};
+
+// Mengambil seluruh hasil UMKM secara bertahap
+async function ambilSemuaUmkm(
+    latitude: number,
+    longitude: number,
+    radius: number,
+    kategori: string
+): Promise<{ data: Umkm[]; error: string | null }> {
+    const semuaUmkm: Umkm[] = [];
+
+    for (let halaman = 0; halaman < MAX_PAGES; halaman++) {
+        const mulai = halaman * PAGE_SIZE;
+        const akhir = mulai + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+            .rpc("get_umkm_in_radius", {
+                p_latitude: latitude,
+                p_longitude: longitude,
+                p_radius_m: radius,
+                p_kategori: kategori,
+            })
+            .order("id_umkm", { ascending: true })
+            .range(mulai, akhir);
+
+        if (error) {
+            return {
+                data: [],
+                error: error.message,
+            };
+        }
+
+        const halamanUmkm = (data ?? []) as Umkm[];
+
+        semuaUmkm.push(...halamanUmkm);
+
+        if (halamanUmkm.length < PAGE_SIZE) {
+            return {
+                data: semuaUmkm,
+                error: null,
+            };
+        }
+    }
+
+    return {
+        data: [],
+        error:
+            `Jumlah UMKM melebihi batas pengambilan ` +
+            `${PAGE_SIZE * MAX_PAGES} data`,
+    };
+}
+
+// API Analisis Lokasi Usaha RINTIK
 export async function POST(request: NextRequest) {
     // 1. Membaca JSON dari frontend
     let body: unknown;
@@ -48,7 +119,7 @@ export async function POST(request: NextRequest) {
         kategori,
     } = body as Record<string, unknown>;
 
-    // 2. Validasi parameter
+    // 2. Validasi koordinat dan radius
     if (
         typeof latitude !== "number" ||
         typeof longitude !== "number" ||
@@ -72,6 +143,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
+    // 3. Validasi kategori UMKM
     if (
         typeof kategori !== "string" ||
         !KATEGORI.includes(kategori)
@@ -86,39 +158,81 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        // 3. Menjalankan 4 fungsi PostGIS
+        // 4. Validasi titik kandidat dalam Kota Bogor
+        const wilayahResult = await supabase.rpc(
+            "is_point_in_bogor",
+            {
+                p_latitude: latitude,
+                p_longitude: longitude,
+            }
+        );
+
+        // Jika pemeriksaan wilayah gagal
+        if (wilayahResult.error) {
+            console.error(
+                "RINTIK validasi wilayah error:",
+                wilayahResult.error
+            );
+
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Gagal memvalidasi wilayah lokasi",
+                },
+                { status: 502 }
+            );
+        }
+
+        // Jika titik berada di luar Kota Bogor
+        if (wilayahResult.data !== true) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Lokasi berada di luar wilayah Kota Bogor. " +
+                        "Silakan pilih titik di dalam Kota Bogor.",
+                },
+                { status: 400 }
+            );
+        }
+
+        // 5. Menjalankan analisis PostGIS
         const [
             bufferResult,
             umkmResult,
             fasilitasResult,
             nearestResult,
         ] = await Promise.all([
+            // Membuat buffer GeoJSON
             supabase.rpc("generate_buffer", {
                 p_latitude: latitude,
                 p_longitude: longitude,
                 p_radius_m: radius,
             }),
 
-            supabase.rpc("get_umkm_in_radius", {
-                p_latitude: latitude,
-                p_longitude: longitude,
-                p_radius_m: radius,
-                p_kategori: kategori,
-            }),
+            // Mengambil semua UMKM dengan pagination
+            ambilSemuaUmkm(
+                latitude,
+                longitude,
+                radius,
+                kategori
+            ),
 
+            // Menghitung fasilitas dalam radius
             supabase.rpc("get_nearby_facilities", {
                 p_latitude: latitude,
                 p_longitude: longitude,
                 p_radius_m: radius,
             }),
 
+            // Menghitung jarak fasilitas terdekat
             supabase.rpc("get_nearest_facilities", {
                 p_latitude: latitude,
                 p_longitude: longitude,
             }),
         ]);
 
-        // 4. Periksa error dari Supabase
+        // 6. Memeriksa error dari Supabase
         const error =
             bufferResult.error ||
             umkmResult.error ||
@@ -137,31 +251,27 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 5. Menyiapkan hasil analisis
-        const daftarUmkm = umkmResult.data ?? [];
+        // 7. Menyiapkan hasil analisis
+        const daftarUmkm = umkmResult.data;
 
-        type Fasilitas = {
-            jenis_objek: string;
-            jumlah: number;
-        };
-
-        const fasilitas: Fasilitas[] =
-            (fasilitasResult.data ?? []) as Fasilitas[];
+        const fasilitas = (
+            fasilitasResult.data ?? []
+        ) as Fasilitas[];
 
         const jumlahSekolah =
             fasilitas.find(
                 (item) => item.jenis_objek === "Sekolah"
-            )?.jumlah ?? null;
+            )?.jumlah ?? 0;
 
         const jumlahPoi =
             fasilitas.find(
                 (item) => item.jenis_objek === "POI"
-            )?.jumlah ?? null;
+            )?.jumlah ?? 0;
 
         const objekTerdekat =
             nearestResult.data?.[0] ?? null;
 
-        // 6. Mengirim hasil ke frontend
+        // 8. Mengirim respons ke frontend
         return NextResponse.json({
             success: true,
             message: "Analisis lokasi berhasil",
@@ -189,6 +299,7 @@ export async function POST(request: NextRequest) {
                 fasilitas_terdekat: objekTerdekat,
             },
         });
+
     } catch (error) {
         console.error("RINTIK API error:", error);
 
