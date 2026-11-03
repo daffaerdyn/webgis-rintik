@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { useState, useEffect, useCallback } from "react";
 import type { GeoJsonObject } from "geojson";
 import type { UmkmFeature, RouteInfo } from "@/components/ExplorationMap";
+import { KATEGORI_WARNA } from "@/lib/constants";
 
 // Dynamic import map Leaflet agar aman dari SSR Next.js
 const AnalysisMap = dynamic(() => import("@/components/AnalysisMap"), {
@@ -49,6 +50,20 @@ type HasilAnalisis = {
     } | null;
 };
 
+type UmkmDetail = {
+    id_umkm: string;
+    nama_umkm: string;
+    kategori: string;
+    deskripsi_produk: string | null;
+    alamat: string | null;
+    kecamatan: string | null;
+    kelurahan: string | null;
+    latitude: number;
+    longitude: number;
+    range_harga: string | null;
+    rating: number | null;
+};
+
 type StatisticsData = {
     total_umkm: number;
     per_kategori: Array<{ kategori: string; jumlah: number }>;
@@ -76,6 +91,11 @@ export default function AnalysisTestPage() {
     const [routeData, setRouteData] = useState<RouteInfo | null>(null);
     const [loadingRoute, setLoadingRoute] = useState(false);
     const [routeError, setRouteError] = useState("");
+
+    // Detail UMKM terpilih
+    const [selectedUmkm, setSelectedUmkm] = useState<UmkmDetail | null>(null);
+    const [selectedUmkmId, setSelectedUmkmId] = useState<string | null>(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
 
     // Statistik Persebaran
     const [statistics, setStatistics] = useState<StatisticsData | null>(null);
@@ -151,6 +171,22 @@ export default function AnalysisTestPage() {
         fetchWilayah();
         fetchStatistics();
     }, [fetchWilayah, fetchStatistics]);
+
+    // Fetch detail lengkap UMKM berdasarkan ID
+    async function fetchUmkmDetail(idUmkm: string) {
+        setLoadingDetail(true);
+        setSelectedUmkmId(idUmkm);
+        setSelectedUmkm(null);
+        try {
+            const res = await fetch(`/api/umkm/${idUmkm}`);
+            const json = await res.json();
+            if (json.success) setSelectedUmkm(json.data as UmkmDetail);
+        } catch (err) {
+            console.error("Gagal memuat detail UMKM:", err);
+        } finally {
+            setLoadingDetail(false);
+        }
+    }
 
     // Eksekusi API Rute Navigasi
     async function buatRuteKeUmkm(idUmkm: string, namaUmkm: string) {
@@ -366,10 +402,56 @@ export default function AnalysisTestPage() {
                                 startPoint={startPoint}
                                 onSelectStartPoint={(lat, lng) => setStartPoint([lat, lng])}
                                 onSelectRouteDestination={buatRuteKeUmkm}
+                                onSelectUmkm={fetchUmkmDetail}
+                                selectedUmkmId={selectedUmkmId}
                                 routeData={routeData}
                                 showWilayah={showWilayah}
                                 wilayahGeoJson={wilayahData}
                             />
+
+                            {/* Panel Detail UMKM Terpilih */}
+                            {loadingDetail && (
+                                <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600 animate-pulse">
+                                    🔍 Memuat informasi detail UMKM...
+                                </div>
+                            )}
+                            {selectedUmkm && !loadingDetail && (
+                                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="space-y-1">
+                                            <span
+                                                className="inline-block px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
+                                                style={{ backgroundColor: KATEGORI_WARNA[selectedUmkm.kategori]?.fill || "#64748b" }}
+                                            >
+                                                {selectedUmkm.kategori}
+                                            </span>
+                                            <h3 className="font-bold text-lg text-slate-900">{selectedUmkm.nama_umkm}</h3>
+                                            <p className="text-xs text-slate-400 font-mono">{selectedUmkm.id_umkm}</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setSelectedUmkm(null); setSelectedUmkmId(null); }}
+                                            className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                                        >✕</button>
+                                    </div>
+                                    <dl className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Deskripsi</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.deskripsi_produk || "Data tidak tersedia"}</dd></div>
+                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Alamat</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.alamat || "Data tidak tersedia"}</dd></div>
+                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Kecamatan</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.kecamatan || "-"}</dd></div>
+                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Kelurahan</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.kelurahan || "-"}</dd></div>
+                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Range Harga</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.range_harga || "Data tidak tersedia"}</dd></div>
+                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Rating</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.rating != null ? `${selectedUmkm.rating} / 5` : "Data tidak tersedia"}</dd></div>
+                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Koordinat</dt><dd className="text-slate-700 mt-0.5 font-mono text-xs">{selectedUmkm.latitude}, {selectedUmkm.longitude}</dd></div>
+                                    </dl>
+                                    <button
+                                        type="button"
+                                        onClick={() => buatRuteKeUmkm(selectedUmkm.id_umkm, selectedUmkm.nama_umkm)}
+                                        className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition"
+                                    >
+                                        🚗 Pandu Rute ke UMKM Ini
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Panel Informasi Rute Aktif */}
                             {loadingRoute && (

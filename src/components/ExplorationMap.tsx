@@ -13,15 +13,8 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import type { GeoJsonObject } from "geojson";
-
-// Warna kategori sesuai desain RINTIK
-export const KATEGORI_WARNA: Record<string, { fill: string; stroke: string }> = {
-    Kuliner: { fill: "#ea580c", stroke: "#9a3412" }, // Oranye
-    Jasa: { fill: "#c026d3", stroke: "#701a75" },    // Magenta
-    Fashion: { fill: "#1e293b", stroke: "#0f172a" }, // Navy / Gelap
-    Kerajinan: { fill: "#16a34a", stroke: "#14532d" },// Hijau
-    Teknologi: { fill: "#2563eb", stroke: "#1e40af" },// Biru
-};
+import { KATEGORI_WARNA } from "@/lib/constants";
+export { KATEGORI_WARNA };
 
 export type UmkmFeature = {
     type: string;
@@ -54,6 +47,8 @@ type ExplorationMapProps = {
     startPoint: [number, number];
     onSelectStartPoint: (lat: number, lng: number) => void;
     onSelectRouteDestination: (id_umkm: string, nama_umkm: string) => void;
+    onSelectUmkm: (id_umkm: string) => void;
+    selectedUmkmId?: string | null;
     routeData: RouteInfo | null;
     showWilayah: boolean;
     wilayahGeoJson: GeoJsonObject | null;
@@ -101,6 +96,8 @@ export default function ExplorationMap({
     startPoint,
     onSelectStartPoint,
     onSelectRouteDestination,
+    onSelectUmkm,
+    selectedUmkmId,
     routeData,
     showWilayah,
     wilayahGeoJson,
@@ -202,44 +199,63 @@ export default function ExplorationMap({
                             stroke: "#334155",
                         };
 
+                    const isSelected = selectedUmkmId === item.properties.id_umkm;
+
                     return (
                         <CircleMarker
                             key={item.properties.id_umkm}
                             center={[lat, lng]}
-                            radius={5}
+                            radius={isSelected ? 9 : 5}
                             pathOptions={{
-                                color: catColors.stroke,
+                                color: isSelected ? "#ffffff" : catColors.stroke,
                                 fillColor: catColors.fill,
-                                fillOpacity: 0.9,
-                                weight: 1.5,
+                                fillOpacity: 0.95,
+                                weight: isSelected ? 3 : 1.5,
+                            }}
+                            eventHandlers={{
+                                click: () => onSelectUmkm(item.properties.id_umkm),
                             }}
                         >
                             <Popup>
-                                <div className="space-y-1 p-1 max-w-[200px]">
-                                    <span
-                                        className="inline-block px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
-                                        style={{ backgroundColor: catColors.fill }}
-                                    >
-                                        {item.properties.kategori}
-                                    </span>
+                                <div className="space-y-1.5 p-1 max-w-[220px]">
+                                    <div className="flex items-center justify-between">
+                                        <span
+                                            className="inline-block px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
+                                            style={{ backgroundColor: catColors.fill }}
+                                        >
+                                            {item.properties.kategori}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-mono">
+                                            {item.properties.id_umkm}
+                                        </span>
+                                    </div>
                                     <h4 className="font-bold text-sm text-slate-900 leading-snug">
                                         {item.properties.nama_umkm}
                                     </h4>
                                     <p className="text-xs text-slate-500">
                                         {item.properties.kelurahan}, {item.properties.kecamatan}
                                     </p>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            onSelectRouteDestination(
-                                                item.properties.id_umkm,
-                                                item.properties.nama_umkm
-                                            )
-                                        }
-                                        className="mt-2 w-full text-center rounded bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition"
-                                    >
-                                        🚗 Pandu Rute ke Sini
-                                    </button>
+                                    <div className="flex flex-col gap-1.5 pt-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => onSelectUmkm(item.properties.id_umkm)}
+                                            className="w-full text-center rounded bg-slate-800 px-2 py-1.5 text-xs font-semibold text-white hover:bg-slate-900 transition flex items-center justify-center gap-1"
+                                        >
+                                            🔍 Lihat Informasi Lengkap
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                onSelectRouteDestination(
+                                                    item.properties.id_umkm,
+                                                    item.properties.nama_umkm
+                                                )
+                                            }
+                                            className="w-full text-center rounded bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition"
+                                        >
+                                            🚗 Pandu Rute ke Sini
+                                        </button>
+                                    </div>
                                 </div>
                             </Popup>
                         </CircleMarker>
