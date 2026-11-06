@@ -242,6 +242,31 @@ export async function GET(request: NextRequest) {
                 );
             }
 
+            // Ambil data pendukung (deskripsi, harga, rating) untuk 20 item pada halaman ini
+            const idList = hasil.map((item) => item.id_umkm);
+            const detailMap: Record<
+                string,
+                {
+                    deskripsi_produk: string | null;
+                    alamat: string | null;
+                    range_harga: string | null;
+                    rating: number | null;
+                }
+            > = {};
+
+            if (idList.length > 0) {
+                const { data: details } = await supabase
+                    .from("umkm")
+                    .select("id_umkm, deskripsi_produk, alamat, range_harga, rating")
+                    .in("id_umkm", idList);
+
+                if (details) {
+                    for (const d of details) {
+                        detailMap[d.id_umkm] = d;
+                    }
+                }
+            }
+
             return NextResponse.json({
                 success: true,
                 message: "Data UMKM dalam radius berhasil diambil",
@@ -258,10 +283,14 @@ export async function GET(request: NextRequest) {
                     id_umkm: item.id_umkm,
                     nama_umkm: item.nama_umkm,
                     kategori: item.kategori,
+                    deskripsi_produk: detailMap[item.id_umkm]?.deskripsi_produk ?? null,
+                    alamat: detailMap[item.id_umkm]?.alamat ?? null,
                     kecamatan: item.kecamatan,
                     kelurahan: item.kelurahan,
                     latitude: item.latitude,
                     longitude: item.longitude,
+                    range_harga: detailMap[item.id_umkm]?.range_harga ?? null,
+                    rating: detailMap[item.id_umkm]?.rating ?? null,
                     jarak_meter: item.jarak_meter,
                 })),
             });
@@ -271,7 +300,7 @@ export async function GET(request: NextRequest) {
         let query = supabase
             .from("umkm")
             .select(
-                "id_umkm,nama_umkm,kategori,kecamatan,kelurahan,latitude,longitude",
+                "id_umkm,nama_umkm,kategori,deskripsi_produk,alamat,kecamatan,kelurahan,latitude,longitude,range_harga,rating",
                 { count: "exact" }
             );
 

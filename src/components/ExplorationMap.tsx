@@ -5,6 +5,7 @@ import {
     MapContainer,
     TileLayer,
     CircleMarker,
+    Circle,
     GeoJSON,
     Popup,
     Polyline,
@@ -32,6 +33,7 @@ export type UmkmFeature = {
 };
 
 export type RouteInfo = {
+    mode?: string;
     titik_awal: { latitude: number; longitude: number };
     tujuan: { id_umkm: string; nama_umkm: string };
     jarak_meter: number;
@@ -52,6 +54,8 @@ type ExplorationMapProps = {
     routeData: RouteInfo | null;
     showWilayah: boolean;
     wilayahGeoJson: GeoJsonObject | null;
+    showMarkers?: boolean;
+    radiusFilter?: number | null;
 };
 
 // Menangani klik pada peta untuk memindahkan titik awal rute
@@ -101,6 +105,8 @@ export default function ExplorationMap({
     routeData,
     showWilayah,
     wilayahGeoJson,
+    showMarkers = true,
+    radiusFilter,
 }: ExplorationMapProps) {
     const center: [number, number] = [-6.595, 106.8167]; // Pusat Kota Bogor
 
@@ -123,6 +129,21 @@ export default function ExplorationMap({
 
                 <MapClickObserver onSelectStartPoint={onSelectStartPoint} />
                 <RouteFitter routeData={routeData} />
+
+                {/* Lingkaran Radius Filter dari Titik Awal */}
+                {radiusFilter != null && radiusFilter > 0 && (
+                    <Circle
+                        center={startPoint}
+                        radius={radiusFilter}
+                        pathOptions={{
+                            color: "#0891b2",
+                            fillColor: "#0891b2",
+                            fillOpacity: 0.08,
+                            weight: 2,
+                            dashArray: "6 4",
+                        }}
+                    />
+                )}
 
                 {/* Layer Batas Kelurahan (Polygon) */}
                 {showWilayah && wilayahGeoJson && (
@@ -189,7 +210,7 @@ export default function ExplorationMap({
                 </CircleMarker>
 
                 {/* Sebaran Titik UMKM */}
-                {umkmList.map((item) => {
+                {showMarkers && umkmList.map((item) => {
                     const [lng, lat] = item.geometry.coordinates;
                     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 

@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { useState, useEffect, useCallback } from "react";
 import type { GeoJsonObject } from "geojson";
 import type { UmkmFeature, RouteInfo } from "@/components/ExplorationMap";
-import { KATEGORI_WARNA } from "@/lib/constants";
+import { KATEGORI_WARNA, KECAMATAN_KELURAHAN_BOGOR, DAFTAR_KECAMATAN } from "@/lib/constants";
 
 // Dynamic import map Leaflet agar aman dari SSR Next.js
 const AnalysisMap = dynamic(() => import("@/components/AnalysisMap"), {
@@ -36,7 +36,22 @@ type HasilAnalisis = {
     buffer: unknown;
     umkm_sejenis: {
         jumlah: number;
-        daftar: unknown[];
+        terdekat?: Array<{
+            id_umkm: string | number;
+            nama_umkm: string;
+            kategori: string;
+            latitude: number;
+            longitude: number;
+            jarak_meter: number;
+        }>;
+        daftar: Array<{
+            id_umkm?: string | number;
+            nama_umkm?: string;
+            kategori?: string;
+            latitude: number;
+            longitude: number;
+            jarak_meter?: number | null;
+        }>;
     };
     fasilitas_dalam_radius: {
         sekolah: number | null;
@@ -86,9 +101,17 @@ export default function AnalysisTestPage() {
     const [showWilayah, setShowWilayah] = useState(true);
     const [wilayahData, setWilayahData] = useState<GeoJsonObject | null>(null);
 
+    // Filter Wilayah & Radius
+    const [filterKecamatan, setFilterKecamatan] = useState("");
+    const [filterKelurahan, setFilterKelurahan] = useState("");
+    const [filterRadius, setFilterRadius] = useState<number | null>(null);
+    const [showMarkers, setShowMarkers] = useState(true);
+    const [statistikFilter, setStatistikFilter] = useState<StatisticsData | null>(null);
+
     // Rute Navigasi
     const [startPoint, setStartPoint] = useState<[number, number]>([-6.600, 106.800]); // Titik awal pengunjung
     const [routeData, setRouteData] = useState<RouteInfo | null>(null);
+    const [routeMode, setRouteMode] = useState<"motor" | "mobil" | "jalan_kaki">("motor");
     const [loadingRoute, setLoadingRoute] = useState(false);
     const [routeError, setRouteError] = useState("");
 
@@ -124,6 +147,15 @@ export default function AnalysisTestPage() {
             if (searchKeyword.trim()) {
                 url += `&search=${encodeURIComponent(searchKeyword.trim())}`;
             }
+            if (filterKecamatan) {
+                url += `&kecamatan=${encodeURIComponent(filterKecamatan)}`;
+            }
+            if (filterKelurahan) {
+                url += `&kelurahan=${encodeURIComponent(filterKelurahan)}`;
+            }
+            if (filterRadius !== null) {
+                url += `&latitude=${startPoint[0]}&longitude=${startPoint[1]}&radius=${filterRadius}`;
+            }
 
             const res = await fetch(url);
             const json = await res.json();
@@ -135,7 +167,7 @@ export default function AnalysisTestPage() {
         } finally {
             setLoadingMap(false);
         }
-    }, [filterKategori, searchKeyword]);
+    }, [filterKategori, searchKeyword, filterKecamatan, filterKelurahan, filterRadius, startPoint]);
 
     // Fetch layer batas kelurahan
     const fetchWilayah = useCallback(async () => {
@@ -163,6 +195,25 @@ export default function AnalysisTestPage() {
         }
     }, []);
 
+    // Fetch statistik berdasarkan filter kecamatan/kelurahan aktif
+    const fetchStatistikFilter = useCallback(async () => {
+        if (!filterKecamatan && !filterKelurahan) {
+            setStatistikFilter(null);
+            return;
+        }
+        const params: string[] = [];
+        if (filterKecamatan) params.push(`kecamatan=${encodeURIComponent(filterKecamatan)}`);
+        if (filterKelurahan) params.push(`kelurahan=${encodeURIComponent(filterKelurahan)}`);
+        const url = "/api/umkm/statistics?" + params.join("&");
+        try {
+            const res = await fetch(url);
+            const json = await res.json();
+            if (json.success && json.data) setStatistikFilter(json.data as StatisticsData);
+        } catch (err) {
+            console.error("Gagal memuat statistik filter:", err);
+        }
+    }, [filterKecamatan, filterKelurahan]);
+
     useEffect(() => {
         fetchUmkmMap();
     }, [fetchUmkmMap]);
@@ -171,6 +222,8 @@ export default function AnalysisTestPage() {
         fetchWilayah();
         fetchStatistics();
     }, [fetchWilayah, fetchStatistics]);
+
+    useEffect(() => { fetchStatistikFilter(); }, [fetchStatistikFilter]);
 
     // Fetch detail lengkap UMKM berdasarkan ID
     async function fetchUmkmDetail(idUmkm: string) {
@@ -189,14 +242,21 @@ export default function AnalysisTestPage() {
     }
 
     // Eksekusi API Rute Navigasi
-    async function buatRuteKeUmkm(idUmkm: string, namaUmkm: string) {
+    async function buatRuteKeUmkm(
+        idUmkm: string,
+        namaUmkm: string,
+        modeOverride?: "motor" | "mobil" | "jalan_kaki"
+    ) {
+        const activeMode = modeOverride || routeMode;
+        if (modeOverride) setRouteMode(modeOverride);
+
         setLoadingRoute(true);
         setRouteError("");
         setRouteData(null);
 
         try {
             const res = await fetch(
-                `/api/routing?latitude=${startPoint[0]}&longitude=${startPoint[1]}&id_umkm=${idUmkm}`
+                `/api/routing?latitude=${startPoint[0]}&longitude=${startPoint[1]}&id_umkm=${idUmkm}&mode=${activeMode}`
             );
             const json = await res.json();
 
@@ -372,6 +432,103 @@ export default function AnalysisTestPage() {
                                     </button>
                                 )}
                             </div>
+
+                            {/* Row 3: Filter Wilayah + Radius + Toggle Marker */}
+                            <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-100 items-center">
+                                {/* Dropdown Kecamatan */}
+                                <select
+                                    value={filterKecamatan}
+                                    onChange={(e) => { setFilterKecamatan(e.target.value); setFilterKelurahan(""); }}
+                                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 focus:outline-emerald-600"
+                                >
+                                    <option value="">Semua Kecamatan</option>
+                                    {DAFTAR_KECAMATAN.map((kec) => (
+                                        <option key={kec} value={kec}>{kec}</option>
+                                    ))}
+                                </select>
+
+                                {/* Dropdown Kelurahan (dependent pada kecamatan) */}
+                                <select
+                                    value={filterKelurahan}
+                                    onChange={(e) => setFilterKelurahan(e.target.value)}
+                                    disabled={!filterKecamatan}
+                                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 focus:outline-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <option value="">Semua Kelurahan</option>
+                                    {filterKecamatan && KECAMATAN_KELURAHAN_BOGOR[filterKecamatan]?.map((kel) => (
+                                        <option key={kel} value={kel}>{kel}</option>
+                                    ))}
+                                </select>
+
+                                {/* Filter Radius dari Titik Awal */}
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-semibold text-slate-600">Radius:</span>
+                                    {[null, 250, 500, 1000, 2000, 3000, 5000].map((r) => (
+                                        <button
+                                            key={String(r)}
+                                            type="button"
+                                            onClick={() => setFilterRadius(r)}
+                                            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition ${
+                                                filterRadius === r
+                                                    ? "bg-cyan-700 text-white shadow-sm"
+                                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                            }`}
+                                        >
+                                            {r === null ? "Semua" : r >= 1000 ? `${r / 1000}Km` : `${r}m`}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Toggle sembunyikan semua marker UMKM */}
+                                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer ml-auto">
+                                    <input
+                                        type="checkbox"
+                                        checked={showMarkers}
+                                        onChange={(e) => setShowMarkers(e.target.checked)}
+                                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    Tampilkan Marker UMKM
+                                </label>
+                            </div>
+
+                            {/* Panel Statistik Filter (muncul jika kecamatan/kelurahan dipilih) */}
+                            {statistikFilter && (filterKecamatan || filterKelurahan) && (
+                                <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-bold text-cyan-900">
+                                            📊 Statistik Persebaran — {filterKelurahan || filterKecamatan}
+                                        </h3>
+                                        <span className="text-lg font-black text-cyan-700">{statistikFilter.total_umkm} UMKM</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-xs font-bold uppercase text-slate-500 mb-2">Per Kategori</p>
+                                            <div className="space-y-1">
+                                                {statistikFilter.per_kategori.map((k) => (
+                                                    <div key={k.kategori} className="flex justify-between items-center text-xs">
+                                                        <span className="flex items-center gap-1.5">
+                                                            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: KATEGORI_WARNA[k.kategori]?.fill || "#64748b" }}></span>
+                                                            {k.kategori}
+                                                        </span>
+                                                        <span className="font-bold">{k.jumlah}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase text-slate-500 mb-2">Per Kecamatan</p>
+                                            <div className="space-y-1">
+                                                {statistikFilter.per_kecamatan.map((kec) => (
+                                                    <div key={kec.kecamatan} className="flex justify-between items-center text-xs">
+                                                        <span>{kec.kecamatan}</span>
+                                                        <span className="font-bold">{kec.jumlah}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </section>
 
                         {/* Peta Eksplorasi & Navigasi Rute */}
@@ -407,6 +564,8 @@ export default function AnalysisTestPage() {
                                 routeData={routeData}
                                 showWilayah={showWilayah}
                                 wilayahGeoJson={wilayahData}
+                                showMarkers={showMarkers}
+                                radiusFilter={filterRadius}
                             />
 
                             {/* Panel Detail UMKM Terpilih */}
@@ -467,41 +626,79 @@ export default function AnalysisTestPage() {
                             )}
 
                             {routeData && (
-                                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="space-y-1">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded">
-                                            Rute Navigasi Ditemukan
-                                        </span>
-                                        <h3 className="font-bold text-slate-900 text-base">
-                                            Menuju {routeData.tujuan.nama_umkm}
-                                        </h3>
-                                        <p className="text-xs text-slate-600">
-                                            Dari koordinat ({routeData.titik_awal.latitude}, {routeData.titik_awal.longitude})
-                                        </p>
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-5 space-y-4 shadow-sm">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded">
+                                                Rute ke {routeData.tujuan.nama_umkm}
+                                            </span>
+                                            <p className="text-xs text-slate-600 mt-0.5">
+                                                Titik awal: Lokasi Anda ({routeData.titik_awal.latitude}, {routeData.titik_awal.longitude})
+                                            </p>
+                                        </div>
+
+                                        {/* Pilihan Moda Transportasi (Sesuai Desain Image 4) */}
+                                        <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-emerald-200">
+                                            {(
+                                                [
+                                                    { key: "motor", label: "🛵 Motor" },
+                                                    { key: "mobil", label: "🚗 Mobil" },
+                                                    { key: "jalan_kaki", label: "🚶 Jalan kaki" },
+                                                ] as const
+                                            ).map((item) => (
+                                                <button
+                                                    key={item.key}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        buatRuteKeUmkm(
+                                                            routeData.tujuan.id_umkm,
+                                                            routeData.tujuan.nama_umkm,
+                                                            item.key
+                                                        )
+                                                    }
+                                                    className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
+                                                        routeMode === item.key
+                                                            ? "bg-amber-500 text-white shadow-sm"
+                                                            : "text-slate-600 hover:bg-slate-100"
+                                                    }`}
+                                                >
+                                                    {item.label}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
 
-                                    <div className="flex items-center gap-6">
-                                        <div className="text-center">
-                                            <p className="text-xs text-slate-500">Jarak Tempuh</p>
-                                            <p className="text-xl font-extrabold text-emerald-800">
-                                                {(routeData.jarak_meter / 1000).toFixed(2)} km
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-emerald-200/60">
+                                        <div className="flex items-baseline gap-2">
+                                            <p className="text-2xl font-black text-red-600">
+                                                ± {(routeData.jarak_meter / 1000).toFixed(1)} km
                                             </p>
+                                            <span className="text-slate-400">•</span>
+                                            <p className="text-2xl font-black text-red-600">
+                                                {Math.ceil(routeData.durasi_detik / 60)} mnt
+                                            </p>
+                                            <span className="text-xs text-slate-500 italic ml-2">
+                                                (Estimasi rute OSRM)
+                                            </span>
                                         </div>
 
-                                        <div className="text-center">
-                                            <p className="text-xs text-slate-500">Estimasi Waktu</p>
-                                            <p className="text-xl font-extrabold text-emerald-800">
-                                                {Math.ceil(routeData.durasi_detik / 60)} menit
-                                            </p>
+                                        <div className="flex items-center gap-2">
+                                            <a
+                                                href={`https://www.google.com/maps/dir/?api=1&origin=${routeData.titik_awal.latitude},${routeData.titik_awal.longitude}&destination=${routeData.tujuan.id_umkm}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="rounded-lg bg-orange-500 px-4 py-2 text-xs font-bold text-white hover:bg-orange-600 transition shadow-sm text-center"
+                                            >
+                                                Mulai rute
+                                            </a>
+                                            <button
+                                                type="button"
+                                                onClick={() => setRouteData(null)}
+                                                className="rounded-lg bg-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-300"
+                                            >
+                                                Hapus rute
+                                            </button>
                                         </div>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setRouteData(null)}
-                                            className="rounded-lg bg-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-300"
-                                        >
-                                            Hapus Rute
-                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -665,15 +862,8 @@ export default function AnalysisTestPage() {
                                         : 106.8167
                                 }
                                 buffer={hasil?.buffer ?? null}
-                                umkm={
-                                    (hasil?.umkm_sejenis.daftar ?? []) as {
-                                        id_umkm?: string | number;
-                                        nama_umkm?: string;
-                                        kategori?: string;
-                                        latitude: number;
-                                        longitude: number;
-                                    }[]
-                                }
+                                umkm={hasil?.umkm_sejenis.daftar ?? []}
+                                kategori={kategori}
                                 onSelectLocation={(lat, lng) => {
                                     setLatitude(String(lat));
                                     setLongitude(String(lng));
@@ -682,72 +872,145 @@ export default function AnalysisTestPage() {
                                 }}
                             />
 
-                            <div className="mt-4 flex flex-wrap gap-4 text-sm">
-                                <span>🔴 Titik calon lokasi usaha</span>
-                                <span>🟢 Buffer radius analisis</span>
-                                <span>🔵 UMKM sejenis di dalam radius</span>
+                            <div className="mt-4 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-700">
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-600 inline-block"></span> Titik kandidat calon</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full border border-orange-500 bg-orange-200 inline-block"></span> Radius analisis {radius}m</span>
+                                <span className="flex items-center gap-1.5">
+                                    <span
+                                        className="w-3 h-3 rounded-full inline-block"
+                                        style={{ backgroundColor: KATEGORI_WARNA[kategori]?.fill || "#ea580c" }}
+                                    ></span>
+                                    UMKM Sejenis ({kategori})
+                                </span>
                             </div>
                         </section>
 
                         {hasil && (
                             <>
-                                <section className="grid gap-4 md:grid-cols-3">
-                                    <div className="rounded-xl bg-white p-5 shadow-sm border-l-4 border-emerald-600">
-                                        <p className="text-xs uppercase font-bold text-slate-500">
-                                            UMKM Sejenis ({kategori})
+                                {/* Kartu Hasil Analisis Spasial Sesuai UI Desain Mockup */}
+                                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+                                    {/* Stepper Indikator Sesuai Desain */}
+                                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-700">
+                                        <span className="flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                                            ✓ Jenis usaha ({kategori})
+                                        </span>
+                                        <span className="text-slate-300">—</span>
+                                        <span className="flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                                            ✓ Titik ({hasil.parameter.latitude}, {hasil.parameter.longitude})
+                                        </span>
+                                        <span className="text-slate-300">—</span>
+                                        <span className="flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                                            ✓ Radius ({radius} meter)
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <h2 className="text-2xl font-extrabold text-red-600">
+                                            Hasil analisis spasial
+                                        </h2>
+                                        <p className="text-xs text-slate-500 mt-1 font-mono">
+                                            {kategori} · {hasil.parameter.latitude} ; {hasil.parameter.longitude} · radius {radius} meter
                                         </p>
-                                        <p className="mt-2 text-3xl font-extrabold text-emerald-700">
+                                    </div>
+
+                                    {/* Kartu Jumlah UMKM Sejenis */}
+                                    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-5">
+                                        <p className="text-5xl font-black text-slate-900">
                                             {hasil.umkm_sejenis.jumlah}
                                         </p>
-                                        <p className="text-xs text-slate-400 mt-1">di dalam radius {radius}m</p>
+                                        <p className="text-sm font-semibold text-slate-600 mt-1">
+                                            UMKM Sejenis ({kategori}) dalam radius {radius} meter
+                                        </p>
                                     </div>
 
-                                    <div className="rounded-xl bg-white p-5 shadow-sm border-l-4 border-blue-600">
-                                        <p className="text-xs uppercase font-bold text-slate-500">
-                                            Sekolah dalam Radius
-                                        </p>
-                                        <p className="mt-2 text-3xl font-extrabold text-blue-700">
-                                            {hasil.fasilitas_dalam_radius.sekolah ?? 0}
-                                        </p>
-                                        <p className="text-xs text-slate-400 mt-1">sekolah pendukung</p>
-                                    </div>
-
-                                    <div className="rounded-xl bg-white p-5 shadow-sm border-l-4 border-amber-600">
-                                        <p className="text-xs uppercase font-bold text-slate-500">
-                                            POI dalam Radius
-                                        </p>
-                                        <p className="mt-2 text-3xl font-extrabold text-amber-700">
-                                            {hasil.fasilitas_dalam_radius.poi ?? 0}
-                                        </p>
-                                        <p className="text-xs text-slate-400 mt-1">fasilitas umum</p>
-                                    </div>
-                                </section>
-
-                                <section className="rounded-xl bg-white p-6 shadow-sm">
-                                    <h2 className="mb-4 text-xl font-semibold">
-                                        Proximity Fasilitas Terdekat
-                                    </h2>
-                                    <div className="grid md:grid-cols-2 gap-4">
-                                        <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
-                                            <p className="text-xs font-bold uppercase text-slate-500">Sekolah Terdekat</p>
-                                            <p className="text-base font-bold text-slate-900 mt-1">
-                                                {hasil.fasilitas_terdekat?.sekolah_terdekat ?? "-"}
+                                    {/* Proximity Jalan & Sekolah Terdekat */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                                Jalan Terdekat
                                             </p>
-                                            <p className="text-sm font-semibold text-emerald-700 mt-1">
-                                                Jarak: {hasil.fasilitas_terdekat?.jarak_sekolah_meter != null ? `${hasil.fasilitas_terdekat.jarak_sekolah_meter} meter` : "-"}
+                                            <p className="text-2xl font-black text-slate-900 mt-1">
+                                                ± {hasil.fasilitas_terdekat?.jarak_jalan_meter != null ? `${hasil.fasilitas_terdekat.jarak_jalan_meter} m` : "-"}
+                                            </p>
+                                            <p className="text-xs text-slate-500 truncate mt-0.5">
+                                                {hasil.fasilitas_terdekat?.jalan_terdekat || "Tidak terdeteksi"}
                                             </p>
                                         </div>
 
-                                        <div className="rounded-lg bg-slate-50 p-4 border border-slate-200">
-                                            <p className="text-xs font-bold uppercase text-slate-500">Jalan Terdekat</p>
-                                            <p className="text-base font-bold text-slate-900 mt-1">
-                                                {hasil.fasilitas_terdekat?.jalan_terdekat ?? "-"}
+                                        <div className="rounded-xl border border-slate-200 bg-white p-4">
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                                Sekolah Terdekat
                                             </p>
-                                            <p className="text-sm font-semibold text-emerald-700 mt-1">
-                                                Jarak: {hasil.fasilitas_terdekat?.jarak_jalan_meter != null ? `${hasil.fasilitas_terdekat.jarak_jalan_meter} meter` : "-"}
+                                            <p className="text-2xl font-black text-slate-900 mt-1">
+                                                ± {hasil.fasilitas_terdekat?.jarak_sekolah_meter != null ? `${hasil.fasilitas_terdekat.jarak_sekolah_meter} m` : "-"}
+                                            </p>
+                                            <p className="text-xs text-slate-500 truncate mt-0.5">
+                                                {hasil.fasilitas_terdekat?.sekolah_terdekat || "Tidak terdeteksi"}
                                             </p>
                                         </div>
                                     </div>
+
+                                    {/* UMKM Sejenis Terdekat (Daftar Pesaing Terdekat) */}
+                                    <div className="space-y-3 pt-2 border-t border-slate-100">
+                                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                                            UMKM Sejenis Terdekat
+                                        </h3>
+
+                                        {hasil.umkm_sejenis.daftar.length === 0 ? (
+                                            <p className="text-xs text-slate-500 italic">
+                                                Tidak ada UMKM sejenis di dalam radius {radius} meter.
+                                            </p>
+                                        ) : (
+                                            <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+                                                {(hasil.umkm_sejenis.terdekat || hasil.umkm_sejenis.daftar.slice(0, 5)).map((umkmItem) => (
+                                                    <div
+                                                        key={String(umkmItem.id_umkm)}
+                                                        className="flex items-center justify-between p-3.5 text-sm hover:bg-slate-50 transition"
+                                                    >
+                                                        <div className="space-y-0.5">
+                                                            <p className="font-bold text-slate-900">
+                                                                {umkmItem.nama_umkm}
+                                                            </p>
+                                                            <p className="text-xs text-slate-400 font-mono">
+                                                                {umkmItem.id_umkm}
+                                                            </p>
+                                                        </div>
+                                                        <span className="font-bold text-red-600 text-sm whitespace-nowrap bg-red-50 px-2.5 py-1 rounded-lg">
+                                                            ± {umkmItem.jarak_meter != null ? `${Math.round(Number(umkmItem.jarak_meter))} m` : "-"}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Fasilitas Pendukung Lain dalam Radius */}
+                                    <div className="grid grid-cols-2 gap-3 text-xs text-slate-600 pt-2 border-t border-slate-100">
+                                        <div className="bg-slate-50 p-3 rounded-lg">
+                                            <span className="text-slate-400 block">Total Sekolah di Radius:</span>
+                                            <strong className="text-slate-800 text-sm">{hasil.fasilitas_dalam_radius.sekolah ?? 0} sekolah</strong>
+                                        </div>
+                                        <div className="bg-slate-50 p-3 rounded-lg">
+                                            <span className="text-slate-400 block">Total Fasilitas Umum (POI):</span>
+                                            <strong className="text-slate-800 text-sm">{hasil.fasilitas_dalam_radius.poi ?? 0} fasilitas</strong>
+                                        </div>
+                                    </div>
+
+                                    {/* Disclaimer Sesuai Desain */}
+                                    <p className="text-[11px] text-slate-400 leading-relaxed italic">
+                                        Informasi pendukung dari data UMKM Kota Bogor, bukan penilaian kelayakan lokasi mutlak. Jarak jalan dan sekolah dihitung berbasis analisis spasial PostGIS.
+                                    </p>
+
+                                    {/* Tombol Ubah Parameter */}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                        }}
+                                        className="w-full rounded-xl bg-orange-500 py-3 text-sm font-bold text-white hover:bg-orange-600 transition shadow-sm"
+                                    >
+                                        Ubah parameter
+                                    </button>
                                 </section>
 
                                 <section className="rounded-xl bg-white p-6 shadow-sm">

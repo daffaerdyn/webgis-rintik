@@ -13,6 +13,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import type { GeoJsonObject } from "geojson";
+import { KATEGORI_WARNA } from "@/lib/constants";
 
 type UmkmPoint = {
     id_umkm?: string | number;
@@ -20,6 +21,7 @@ type UmkmPoint = {
     kategori?: string;
     latitude: number;
     longitude: number;
+    jarak_meter?: number | null;
 };
 
 type AnalysisMapProps = {
@@ -27,6 +29,7 @@ type AnalysisMapProps = {
     longitude: number;
     buffer: unknown;
     umkm: UmkmPoint[];
+    kategori?: string;
     onSelectLocation: (lat: number, lng: number) => void;
 };
 
@@ -100,6 +103,7 @@ export default function AnalysisMap({
     longitude,
     buffer,
     umkm,
+    kategori,
     onSelectLocation,
 }: AnalysisMapProps) {
     const posisi: [number, number] = [
@@ -157,10 +161,11 @@ export default function AnalysisMap({
                         data={buffer}
                         interactive={false}
                         style={{
-                            color: "#059669",
+                            color: "#ea580c",
                             weight: 2,
-                            fillColor: "#10b981",
-                            fillOpacity: 0.15,
+                            dashArray: "6, 6",
+                            fillColor: "#ea580c",
+                            fillOpacity: 0.12,
                         }}
                     />
                 )}
@@ -177,25 +182,39 @@ export default function AnalysisMap({
                         return null;
                     }
 
+                    const katKey = item.kategori || kategori || "Kuliner";
+                    const warna = KATEGORI_WARNA[katKey] || { fill: "#ea580c", stroke: "#9a3412" };
+
                     return (
                         <CircleMarker
                             key={item.id_umkm ?? index}
                             center={[lat, lng]}
-                            radius={6}
+                            radius={7}
                             pathOptions={{
-                                color: "#1d4ed8",
-                                fillColor: "#3b82f6",
+                                color: warna.stroke,
+                                fillColor: warna.fill,
                                 fillOpacity: 0.9,
+                                weight: 2,
                                 bubblingMouseEvents: false,
                             }}
                         >
                             <Popup>
-                                <strong>
-                                    {item.nama_umkm ?? "UMKM"}
-                                </strong>
-                                <p>
-                                    Kategori: {item.kategori ?? "-"}
-                                </p>
+                                <div className="space-y-1 p-0.5 text-xs">
+                                    <span
+                                        className="inline-block px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
+                                        style={{ backgroundColor: warna.fill }}
+                                    >
+                                        {katKey}
+                                    </span>
+                                    <h4 className="font-bold text-sm text-slate-900 leading-snug">
+                                        {item.nama_umkm ?? "UMKM"}
+                                    </h4>
+                                    {item.jarak_meter != null && (
+                                        <p className="font-semibold text-emerald-700">
+                                            ± {Math.round(Number(item.jarak_meter))} meter dari lokasi
+                                        </p>
+                                    )}
+                                </div>
                             </Popup>
                         </CircleMarker>
                     );

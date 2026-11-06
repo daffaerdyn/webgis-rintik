@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
         const latitudeParam = searchParams.get("latitude");
         const longitudeParam = searchParams.get("longitude");
         const idUmkm = (searchParams.get("id_umkm") ?? "").trim();
+        const modeInput = (searchParams.get("mode") ?? "motor").toLowerCase();
+        const mode = ["motor", "mobil", "jalan_kaki"].includes(modeInput) ? modeInput : "motor";
 
         // 2. Validasi parameter wajib
         if (
@@ -184,12 +186,25 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        // Estimasi durasi berdasarkan moda transportasi (Image 4)
+        let durasiDetik = rute.duration;
+        if (mode === "jalan_kaki") {
+            // Asumsi kecepatan jalan kaki rata-rata 4.5 km/jam (1.25 m/s)
+            durasiDetik = Math.round(rute.distance / 1.25);
+        } else if (mode === "motor") {
+            // Motor lebih fleksibel di lalu lintas perkotaan Bogor (~15% lebih cepat dari profil mobil)
+            durasiDetik = Math.round(rute.duration * 0.85);
+        } else {
+            durasiDetik = Math.round(rute.duration);
+        }
+
         // 10. Mengirim rute ke frontend
         return NextResponse.json({
             success: true,
             message: "Rute menuju UMKM berhasil ditemukan",
 
             data: {
+                mode,
                 titik_awal: {
                     latitude,
                     longitude,
@@ -203,7 +218,7 @@ export async function GET(request: NextRequest) {
                 },
 
                 jarak_meter: rute.distance,
-                durasi_detik: rute.duration,
+                durasi_detik: durasiDetik,
 
                 geometry: rute.geometry,
             },
