@@ -108,6 +108,15 @@ export default function AnalysisTestPage() {
     const [showMarkers, setShowMarkers] = useState(true);
     const [statistikFilter, setStatistikFilter] = useState<StatisticsData | null>(null);
 
+    // Sorting & Filter Rating / Harga
+    const [sortBy, setSortBy] = useState<"default" | "rating_jarak" | "rating" | "jarak" | "harga_termurah" | "harga_termahal">("rating_jarak");
+    const [filterMinRating, setFilterMinRating] = useState<number | null>(null);
+    const [filterHarga, setFilterHarga] = useState<"" | "murah" | "menengah" | "premium">("");
+    const [umkmListSorted, setUmkmListSorted] = useState<Array<UmkmDetail & { jarak_meter?: number | null }>>([]);
+    const [loadingSortedList, setLoadingSortedList] = useState(false);
+    const [listPage, setListPage] = useState(1);
+    const [totalFilteredData, setTotalFilteredData] = useState(0);
+
     // Rute Navigasi
     const [startPoint, setStartPoint] = useState<[number, number]>([-6.600, 106.800]); // Titik awal pengunjung
     const [routeData, setRouteData] = useState<RouteInfo | null>(null);
@@ -224,6 +233,60 @@ export default function AnalysisTestPage() {
     }, [fetchWilayah, fetchStatistics]);
 
     useEffect(() => { fetchStatistikFilter(); }, [fetchStatistikFilter]);
+
+    // Fetch daftar rekomendasi UMKM dengan filter rating, harga, dan sorting
+    const fetchSortedUmkm = useCallback(async () => {
+        setLoadingSortedList(true);
+        try {
+            const params: string[] = [`page=${listPage}`];
+            if (filterKategori !== "Semua") {
+                params.push(`kategori=${encodeURIComponent(filterKategori)}`);
+            }
+            if (searchKeyword.trim()) {
+                params.push(`search=${encodeURIComponent(searchKeyword.trim())}`);
+            }
+            if (filterKecamatan) {
+                params.push(`kecamatan=${encodeURIComponent(filterKecamatan)}`);
+            }
+            if (filterKelurahan) {
+                params.push(`kelurahan=${encodeURIComponent(filterKelurahan)}`);
+            }
+            if (filterRadius !== null) {
+                params.push(`latitude=${startPoint[0]}&longitude=${startPoint[1]}&radius=${filterRadius}`);
+            } else {
+                params.push(`user_lat=${startPoint[0]}&user_lng=${startPoint[1]}`);
+            }
+            if (sortBy !== "default") {
+                params.push(`sort=${sortBy}`);
+            }
+            if (filterMinRating !== null) {
+                params.push(`min_rating=${filterMinRating}`);
+            }
+            if (filterHarga) {
+                params.push(`rentang_harga=${filterHarga}`);
+            }
+
+            const res = await fetch(`/api/umkm?${params.join("&")}`);
+            const json = await res.json();
+            if (json.success && Array.isArray(json.data)) {
+                setUmkmListSorted(json.data);
+                setTotalFilteredData(json.pagination?.total_data ?? json.data.length);
+            }
+        } catch (err) {
+            console.error("Gagal memuat list rekomendasi UMKM:", err);
+        } finally {
+            setLoadingSortedList(false);
+        }
+    }, [filterKategori, searchKeyword, filterKecamatan, filterKelurahan, filterRadius, startPoint, sortBy, filterMinRating, filterHarga, listPage]);
+
+    useEffect(() => {
+        fetchSortedUmkm();
+    }, [fetchSortedUmkm]);
+
+    // Reset pagination saat filter berubah
+    useEffect(() => {
+        setListPage(1);
+    }, [filterKategori, searchKeyword, filterKecamatan, filterKelurahan, filterRadius, sortBy, filterMinRating, filterHarga]);
 
     // Fetch detail lengkap UMKM berdasarkan ID
     async function fetchUmkmDetail(idUmkm: string) {
@@ -491,6 +554,120 @@ export default function AnalysisTestPage() {
                                 </label>
                             </div>
 
+                            {/* Row 4: Sorting & Filter Rating / Harga */}
+                            <div className="flex flex-col gap-3 pt-3 border-t border-slate-100">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                                        ⚡ Urutkan:
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSortBy("rating_jarak")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                                            sortBy === "rating_jarak"
+                                                ? "bg-amber-600 text-white shadow-sm"
+                                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                        }`}
+                                    >
+                                        🌟 Rekomendasi (Rating + Jarak)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSortBy("rating")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                                            sortBy === "rating"
+                                                ? "bg-amber-600 text-white shadow-sm"
+                                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                        }`}
+                                    >
+                                        ⭐ Rating Tertinggi
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSortBy("jarak")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                                            sortBy === "jarak"
+                                                ? "bg-amber-600 text-white shadow-sm"
+                                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                        }`}
+                                    >
+                                        📍 Jarak Terdekat
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSortBy("harga_termurah")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                                            sortBy === "harga_termurah"
+                                                ? "bg-amber-600 text-white shadow-sm"
+                                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                        }`}
+                                    >
+                                        🏷️ Harga Termurah
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSortBy("harga_termahal")}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                                            sortBy === "harga_termahal"
+                                                ? "bg-amber-600 text-white shadow-sm"
+                                                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                                        }`}
+                                    >
+                                        💎 Harga Premium
+                                    </button>
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                                    {/* Filter Min Rating */}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-semibold text-slate-600">Min. Rating:</span>
+                                        {[
+                                            { label: "Semua", val: null },
+                                            { label: "⭐ 4.5+", val: 4.5 },
+                                            { label: "⭐ 4.7+", val: 4.7 },
+                                            { label: "⭐ 4.8+", val: 4.8 },
+                                        ].map((r) => (
+                                            <button
+                                                key={String(r.val)}
+                                                type="button"
+                                                onClick={() => setFilterMinRating(r.val)}
+                                                className={`px-2.5 py-1 rounded-full text-xs font-semibold transition ${
+                                                    filterMinRating === r.val
+                                                        ? "bg-amber-500 text-white shadow-sm"
+                                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                                }`}
+                                            >
+                                                {r.label}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* Filter Rentang Harga */}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-semibold text-slate-600">Rentang Harga:</span>
+                                        {[
+                                            { label: "Semua", val: "" },
+                                            { label: "🟢 < 25rb (Murah)", val: "murah" },
+                                            { label: "🟡 25rb - 50rb", val: "menengah" },
+                                            { label: "🔴 > 50rb (Premium)", val: "premium" },
+                                        ].map((h) => (
+                                            <button
+                                                key={h.val}
+                                                type="button"
+                                                onClick={() => setFilterHarga(h.val as "" | "murah" | "menengah" | "premium")}
+                                                className={`px-2.5 py-1 rounded-full text-xs font-semibold transition ${
+                                                    filterHarga === h.val
+                                                        ? "bg-emerald-700 text-white shadow-sm"
+                                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                                }`}
+                                            >
+                                                {h.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Panel Statistik Filter (muncul jika kecamatan/kelurahan dipilih) */}
                             {statistikFilter && (filterKecamatan || filterKelurahan) && (
                                 <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-4 space-y-3">
@@ -700,6 +877,141 @@ export default function AnalysisTestPage() {
                                             </button>
                                         </div>
                                     </div>
+                                </div>
+                            )}
+                        </section>
+
+                        {/* Section: Daftar Hasil Rekomendasi UMKM Terurut */}
+                        <section className="rounded-xl bg-white p-5 shadow-sm space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                                <div>
+                                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                        📋 Daftar Rekomendasi UMKM
+                                        <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                                            {totalFilteredData} UMKM
+                                        </span>
+                                    </h2>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Urutan: <span className="font-semibold text-slate-700">
+                                            {sortBy === "rating_jarak" && "🌟 Rekomendasi Terbaik (Rating & Jarak)"}
+                                            {sortBy === "rating" && "⭐ Rating Tertinggi"}
+                                            {sortBy === "jarak" && "📍 Jarak Terdekat dari Posisi Anda"}
+                                            {sortBy === "harga_termurah" && "🏷️ Harga Paling Terjangkau"}
+                                            {sortBy === "harga_termahal" && "💎 Harga Premium"}
+                                            {sortBy === "default" && "Bawaan"}
+                                        </span>
+                                        {filterKecamatan && ` · Wilayah: ${filterKelurahan || filterKecamatan}`}
+                                        {filterMinRating && ` · Min. ⭐ ${filterMinRating}`}
+                                        {filterHarga && ` · Harga: ${filterHarga}`}
+                                    </p>
+                                </div>
+
+                                {/* Pagination Controls */}
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        disabled={listPage <= 1 || loadingSortedList}
+                                        onClick={() => setListPage((p) => Math.max(1, p - 1))}
+                                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                                    >
+                                        ← Sebelumnya
+                                    </button>
+                                    <span className="text-xs font-medium text-slate-600">
+                                        Hal. {listPage} / {Math.max(1, Math.ceil(totalFilteredData / 20))}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        disabled={listPage >= Math.ceil(totalFilteredData / 20) || loadingSortedList}
+                                        onClick={() => setListPage((p) => p + 1)}
+                                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                                    >
+                                        Berikutnya →
+                                    </button>
+                                </div>
+                            </div>
+
+                            {loadingSortedList ? (
+                                <div className="py-12 text-center text-sm text-slate-500 animate-pulse">
+                                    ⏳ Memuat daftar rekomendasi UMKM...
+                                </div>
+                            ) : umkmListSorted.length === 0 ? (
+                                <div className="py-12 text-center text-sm text-slate-500">
+                                    Tidak ada UMKM yang cocok dengan kriteria filter yang dipilih. Coba sesuaikan rating, harga, atau wilayah.
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {umkmListSorted.map((item) => {
+                                        const catColor = KATEGORI_WARNA[item.kategori]?.fill || "#64748b";
+                                        const isSelected = selectedUmkmId === item.id_umkm;
+
+                                        return (
+                                            <div
+                                                key={item.id_umkm}
+                                                className={`rounded-xl border p-4 transition flex flex-col justify-between gap-3 ${
+                                                    isSelected
+                                                        ? "border-emerald-600 bg-emerald-50/40 shadow-md ring-2 ring-emerald-500/20"
+                                                        : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
+                                                }`}
+                                            >
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span
+                                                            className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
+                                                            style={{ backgroundColor: catColor }}
+                                                        >
+                                                            {item.kategori}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 font-mono">
+                                                            {item.id_umkm}
+                                                        </span>
+                                                    </div>
+
+                                                    <h4 className="font-bold text-slate-900 text-sm leading-snug line-clamp-1">
+                                                        {item.nama_umkm}
+                                                    </h4>
+
+                                                    <p className="text-xs text-slate-500 line-clamp-1">
+                                                        {item.alamat || `${item.kelurahan || "-"}, ${item.kecamatan || "-"}`}
+                                                    </p>
+
+                                                    <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+                                                        {item.rating != null && (
+                                                            <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60">
+                                                                ⭐ {item.rating}
+                                                            </span>
+                                                        )}
+                                                        {item.range_harga && (
+                                                            <span className="inline-flex items-center gap-1 text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                                                                🏷️ {item.range_harga}
+                                                            </span>
+                                                        )}
+                                                        {item.jarak_meter != null && (
+                                                            <span className="inline-flex items-center gap-1 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60">
+                                                                📍 {item.jarak_meter < 1000 ? `${item.jarak_meter} m` : `${(item.jarak_meter / 1000).toFixed(1)} km`}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fetchUmkmDetail(item.id_umkm)}
+                                                        className="w-full rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition text-center"
+                                                    >
+                                                        🔍 Detail
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => buatRuteKeUmkm(item.id_umkm, item.nama_umkm)}
+                                                        className="w-full rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition text-center"
+                                                    >
+                                                        🚗 Rute
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </section>
