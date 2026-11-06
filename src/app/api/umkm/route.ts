@@ -4,6 +4,33 @@ import { supabase } from "@/lib/supabase";
 
 const PAGE_SIZE = 20;
 
+function parseHargaMin(rangeHarga: string | null): number {
+    if (!rangeHarga) return 999999999;
+    const match = rangeHarga.replace(/\./g, "").match(/\d+/);
+    return match ? parseInt(match[0], 10) : 999999999;
+}
+
+function parseHargaMax(rangeHarga: string | null): number {
+    if (!rangeHarga) return 0;
+    const matches = rangeHarga.replace(/\./g, "").match(/\d+/g);
+    if (!matches) return 0;
+    return parseInt(matches[matches.length - 1], 10);
+}
+
+function hitungJarakMeter(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c);
+}
+
 type UmkmRadiusRow = {
     id_umkm: string;
     nama_umkm: string;
@@ -39,6 +66,14 @@ export async function GET(request: NextRequest) {
         const latitudeParam = searchParams.get("latitude");
         const longitudeParam = searchParams.get("longitude");
         const radiusParam = searchParams.get("radius");
+
+        // Parameter sorting dan filter harga / rating
+        const sort = (searchParams.get("sort") ?? "default").trim();
+        const minRatingParam = searchParams.get("min_rating");
+        const minRating = minRatingParam && !isNaN(Number(minRatingParam)) ? Number(minRatingParam) : null;
+        const rentangHarga = (searchParams.get("rentang_harga") ?? "").trim(); // murah, menengah, premium
+        const userLatParam = searchParams.get("user_lat");
+        const userLngParam = searchParams.get("user_lng");
 
         const page = Number(pageParam);
 
@@ -166,6 +201,9 @@ export async function GET(request: NextRequest) {
             latitude,
             longitude,
             radius,
+            sort,
+            min_rating: minRating,
+            rentang_harga: rentangHarga || null,
         };
 
         // FILTER BERDASARKAN RADIUS
@@ -267,6 +305,55 @@ export async function GET(request: NextRequest) {
                 }
             }
 
+            let list = hasil.map((item) => ({
+                id_umkm: item.id_umkm,
+                nama_umkm: item.nama_umkm,
+                kategori: item.kategori,
+                deskripsi_produk: detailMap[item.id_umkm]?.deskripsi_produk ?? null,
+                alamat: detailMap[item.id_umkm]?.alamat ?? null,
+                kecamatan: item.kecamatan,
+                kelurahan: item.kelurahan,
+                latitude: item.latitude,
+                longitude: item.longitude,
+                range_harga: detailMap[item.id_umkm]?.range_harga ?? null,
+                rating: detailMap[item.id_umkm]?.rating ?? null,
+                jarak_meter: item.jarak_meter,
+            }));
+
+            // Filter rating
+            if (minRating !== null) {
+                list = list.filter((x) => (x.rating ?? 0) >= minRating);
+            }
+
+            // Filter harga
+            if (rentangHarga === "murah") {
+                list = list.filter((x) => parseHargaMin(x.range_harga) < 25000);
+            } else if (rentangHarga === "menengah") {
+                list = list.filter((x) => {
+                    const h = parseHargaMin(x.range_harga);
+                    return h >= 25000 && h <= 50000;
+                });
+            } else if (rentangHarga === "premium") {
+                list = list.filter((x) => parseHargaMin(x.range_harga) > 50000);
+            }
+
+            // Sorting
+            if (sort === "rating") {
+                list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+            } else if (sort === "jarak") {
+                list.sort((a, b) => a.jarak_meter - b.jarak_meter);
+            } else if (sort === "rating_jarak" || sort === "rekomendasi") {
+                list.sort((a, b) => {
+                    const scoreA = ((a.rating ?? 3) / 5) * 50 + (1000 / (1000 + a.jarak_meter)) * 50;
+                    const scoreB = ((b.rating ?? 3) / 5) * 50 + (1000 / (1000 + b.jarak_meter)) * 50;
+                    return scoreB - scoreA;
+                });
+            } else if (sort === "harga_termurah") {
+                list.sort((a, b) => parseHargaMin(a.range_harga) - parseHargaMin(b.range_harga));
+            } else if (sort === "harga_termahal") {
+                list.sort((a, b) => parseHargaMax(b.range_harga) - parseHargaMax(a.range_harga));
+            }
+
             return NextResponse.json({
                 success: true,
                 message: "Data UMKM dalam radius berhasil diambil",
@@ -279,24 +366,15 @@ export async function GET(request: NextRequest) {
                         totalData / PAGE_SIZE
                     ),
                 },
-                data: hasil.map((item) => ({
-                    id_umkm: item.id_umkm,
-                    nama_umkm: item.nama_umkm,
-                    kategori: item.kategori,
-                    deskripsi_produk: detailMap[item.id_umkm]?.deskripsi_produk ?? null,
-                    alamat: detailMap[item.id_umkm]?.alamat ?? null,
-                    kecamatan: item.kecamatan,
-                    kelurahan: item.kelurahan,
-                    latitude: item.latitude,
-                    longitude: item.longitude,
-                    range_harga: detailMap[item.id_umkm]?.range_harga ?? null,
-                    rating: detailMap[item.id_umkm]?.rating ?? null,
-                    jarak_meter: item.jarak_meter,
-                })),
+                data: list,
             });
         }
 
         // QUERY NORMAL TANPA FILTER RADIUS
+        const visitorLat = userLatParam ? Number(userLatParam) : (latitudeParam && !menggunakanRadius ? Number(latitudeParam) : null);
+        const visitorLng = userLngParam ? Number(userLngParam) : (longitudeParam && !menggunakanRadius ? Number(longitudeParam) : null);
+        const hasVisitorLoc = visitorLat !== null && visitorLng !== null && Number.isFinite(visitorLat) && Number.isFinite(visitorLng);
+
         let query = supabase
             .from("umkm")
             .select(
@@ -332,38 +410,125 @@ export async function GET(request: NextRequest) {
             query = query.eq("kelurahan", kelurahan);
         }
 
-        const { data, error, count } = await query
-            .order("id_umkm", { ascending: true })
-            .range(mulai, akhir);
+        // Filter minimum rating
+        if (minRating !== null) {
+            query = query.gte("rating", minRating);
+        }
 
-        if (error) {
-            // Firewall Supabase (Cloudflare) memblokir pola yang mirip serangan SQL
-            const diblokirFirewall =
-                typeof error.message === "string" &&
-                error.message.includes("Cloudflare");
+        const needsCustomSortOrFilter =
+            rentangHarga !== "" ||
+            sort === "jarak" ||
+            sort === "rating_jarak" ||
+            sort === "rekomendasi" ||
+            sort === "harga_termurah" ||
+            sort === "harga_termahal";
 
-            if (diblokirFirewall) {
-                console.warn("RINTIK: pencarian diblokir firewall Supabase");
+        let finalData: Array<{
+            id_umkm: string;
+            nama_umkm: string;
+            kategori: string | null;
+            deskripsi_produk: string | null;
+            alamat: string | null;
+            kecamatan: string | null;
+            kelurahan: string | null;
+            latitude: number | null;
+            longitude: number | null;
+            range_harga: string | null;
+            rating: number | null;
+            jarak_meter?: number | null;
+        }> = [];
+        let totalCount = 0;
 
-                return NextResponse.json(
-                    {
-                        success: false,
-                        message:
-                            "Kata pencarian mengandung pola yang tidak diizinkan",
-                    },
-                    { status: 400 }
-                );
+        if (needsCustomSortOrFilter) {
+            // Ambil data untuk sorting dan filtering harga/jarak
+            const { data: allMatches, error: allErr } = await query;
+            if (allErr) {
+                console.error("RINTIK UMKM query error:", allErr);
+                return NextResponse.json({ success: false, message: "Gagal mengambil data UMKM" }, { status: 502 });
             }
 
-            console.error("RINTIK UMKM error:", error);
+            let list = (allMatches ?? []).map((item) => {
+                let jarakMeter: number | null = null;
+                if (hasVisitorLoc && item.latitude != null && item.longitude != null) {
+                    jarakMeter = hitungJarakMeter(visitorLat!, visitorLng!, item.latitude, item.longitude);
+                }
+                return {
+                    ...item,
+                    jarak_meter: jarakMeter,
+                };
+            });
 
-            return NextResponse.json(
-                {
-                    success: false,
-                    message: "Gagal mengambil data UMKM",
-                },
-                { status: 502 }
-            );
+            // Filter harga
+            if (rentangHarga === "murah") {
+                list = list.filter((x) => parseHargaMin(x.range_harga) < 25000);
+            } else if (rentangHarga === "menengah") {
+                list = list.filter((x) => {
+                    const h = parseHargaMin(x.range_harga);
+                    return h >= 25000 && h <= 50000;
+                });
+            } else if (rentangHarga === "premium") {
+                list = list.filter((x) => parseHargaMin(x.range_harga) > 50000);
+            }
+
+            // Custom sort
+            if (sort === "rating") {
+                list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+            } else if (sort === "jarak" && hasVisitorLoc) {
+                list.sort((a, b) => (a.jarak_meter ?? 999999999) - (b.jarak_meter ?? 999999999));
+            } else if ((sort === "rating_jarak" || sort === "rekomendasi") && hasVisitorLoc) {
+                list.sort((a, b) => {
+                    const distA = a.jarak_meter ?? 5000;
+                    const distB = b.jarak_meter ?? 5000;
+                    const scoreA = ((a.rating ?? 3) / 5) * 50 + (1000 / (1000 + distA)) * 50;
+                    const scoreB = ((b.rating ?? 3) / 5) * 50 + (1000 / (1000 + distB)) * 50;
+                    return scoreB - scoreA;
+                });
+            } else if (sort === "harga_termurah") {
+                list.sort((a, b) => parseHargaMin(a.range_harga) - parseHargaMin(b.range_harga));
+            } else if (sort === "harga_termahal") {
+                list.sort((a, b) => parseHargaMax(b.range_harga) - parseHargaMax(a.range_harga));
+            }
+
+            totalCount = list.length;
+            finalData = list.slice(mulai, akhir + 1);
+        } else {
+            // Sort database bawaan
+            if (sort === "rating") {
+                query = query.order("rating", { ascending: false, nullsFirst: false });
+            } else {
+                query = query.order("id_umkm", { ascending: true });
+            }
+
+            const { data, error, count } = await query.range(mulai, akhir);
+
+            if (error) {
+                const diblokirFirewall =
+                    typeof error.message === "string" &&
+                    error.message.includes("Cloudflare");
+
+                if (diblokirFirewall) {
+                    console.warn("RINTIK: pencarian diblokir firewall Supabase");
+                    return NextResponse.json(
+                        { success: false, message: "Kata pencarian mengandung pola yang tidak diizinkan" },
+                        { status: 400 }
+                    );
+                }
+
+                console.error("RINTIK UMKM error:", error);
+                return NextResponse.json({ success: false, message: "Gagal mengambil data UMKM" }, { status: 502 });
+            }
+
+            totalCount = count ?? 0;
+            finalData = (data ?? []).map((item) => {
+                let jarakMeter: number | null = null;
+                if (hasVisitorLoc && item.latitude != null && item.longitude != null) {
+                    jarakMeter = hitungJarakMeter(visitorLat!, visitorLng!, item.latitude, item.longitude);
+                }
+                return {
+                    ...item,
+                    jarak_meter: jarakMeter,
+                };
+            });
         }
 
         return NextResponse.json({
@@ -373,12 +538,12 @@ export async function GET(request: NextRequest) {
             pagination: {
                 halaman: page,
                 per_halaman: PAGE_SIZE,
-                total_data: count ?? 0,
+                total_data: totalCount,
                 total_halaman: Math.ceil(
-                    (count ?? 0) / PAGE_SIZE
+                    totalCount / PAGE_SIZE
                 ),
             },
-            data: data ?? [],
+            data: finalData,
         });
 
     } catch (error) {

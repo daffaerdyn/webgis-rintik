@@ -138,3 +138,4 @@ fs.writeFileSync(outputPath, sql, 'utf8');
 
 console.log(`File SQL berhasil digenerate di: ${outputPath}`);
 console.log(`Ukuran file: ${(fs.statSync(outputPath).size / 1024).toFixed(2)} KB`);
+
