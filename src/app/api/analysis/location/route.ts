@@ -51,6 +51,7 @@ async function ambilSemuaUmkm(
                 p_radius_m: radius,
                 p_kategori: kategori,
             })
+            .order("jarak_meter", { ascending: true })
             .order("id_umkm", { ascending: true })
             .range(mulai, akhir);
 
@@ -288,6 +289,7 @@ export async function POST(request: NextRequest) {
 
                 umkm_sejenis: {
                     jumlah: daftarUmkm.length,
+                    terdekat: daftarUmkm.slice(0, 5),
                     daftar: daftarUmkm,
                 },
 
