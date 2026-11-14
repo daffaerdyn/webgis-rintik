@@ -6,11 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "node --test \"tests/e2e/runner.test.ts\" \"tests/e2e/tier1-features.test.ts\" \"tests/e2e/tier2-boundaries.test.ts\" \"tests/e2e/tier3-cross-feature.test.ts\" \"tests/e2e/tier4-personas.test.ts\" \"tests/e2e/tier5-adversarial.test.ts\""
   },
   "dependencies": {
+    "@gsap/react": "^2.1.1",
+    "@iconify/react": "^6.0.4",
     "@supabase/supabase-js": "^2.118.0",
+    "framer-motion": "^12.4.7",
+    "gsap": "^3.12.5",
     "leaflet": "^1.9.4",
+    "lucide-react": "^0.475.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",

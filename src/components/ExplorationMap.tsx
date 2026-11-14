@@ -44,6 +44,19 @@ export type RouteInfo = {
     };
 };
 
+const WILAYAH_LAYER_STYLE = {
+    color: "var(--color-ink-muted)",
+    weight: 1.5,
+    fillColor: "var(--color-ink-muted)",
+    fillOpacity: 0.1,
+    dashArray: "4 4",
+};
+
+const DEFAULT_CATEGORY_COLORS = {
+    fill: "var(--color-ink-muted)",
+    stroke: "var(--color-ink-primary)",
+};
+
 type ExplorationMapProps = {
     umkmList: UmkmFeature[];
     startPoint: [number, number];
@@ -150,13 +163,7 @@ export default function ExplorationMap({
                     <GeoJSON
                         key={JSON.stringify(showWilayah)}
                         data={wilayahGeoJson}
-                        style={{
-                            color: "#64748b",
-                            weight: 1.5,
-                            fillColor: "#94a3b8",
-                            fillOpacity: 0.1,
-                            dashArray: "4 4",
-                        }}
+                        style={WILAYAH_LAYER_STYLE}
                         onEachFeature={(feature, layer) => {
                             const name =
                                 feature.properties?.nama_kelurahan ||
@@ -215,10 +222,7 @@ export default function ExplorationMap({
                     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
                     const catColors =
-                        KATEGORI_WARNA[item.properties.kategori] || {
-                            fill: "#64748b",
-                            stroke: "#334155",
-                        };
+                        KATEGORI_WARNA[item.properties.kategori] || DEFAULT_CATEGORY_COLORS;
 
                     const isSelected = selectedUmkmId === item.properties.id_umkm;
 
@@ -262,7 +266,7 @@ export default function ExplorationMap({
                                             onClick={() => onSelectUmkm(item.properties.id_umkm)}
                                             className="w-full text-center rounded bg-slate-800 px-2 py-1.5 text-xs font-semibold text-white hover:bg-slate-900 transition flex items-center justify-center gap-1"
                                         >
-                                            🔍 Lihat Informasi Lengkap
+                                            Lihat Informasi Lengkap
                                         </button>
                                         <button
                                             type="button"
@@ -274,7 +278,7 @@ export default function ExplorationMap({
                                             }
                                             className="w-full text-center rounded bg-emerald-600 px-2 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition"
                                         >
-                                            🚗 Pandu Rute ke Sini
+                                            Pandu Rute ke Sini
                                         </button>
                                     </div>
                                 </div>

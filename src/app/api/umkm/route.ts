@@ -180,13 +180,13 @@ export async function GET(request: NextRequest) {
                 longitude < -180 ||
                 longitude > 180 ||
                 radius <= 0 ||
-                radius > 5000
+                radius > 25000
             ) {
                 return NextResponse.json(
                     {
                         success: false,
                         message:
-                            "Koordinat tidak valid atau radius di luar batas 1-5000 meter",
+                            "Koordinat tidak valid atau radius di luar batas 1-25000 meter",
                     },
                     { status: 400 }
                 );

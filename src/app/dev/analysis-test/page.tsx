@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import "leaflet/dist/leaflet.css";
 import { useState, useEffect, useCallback } from "react";
 import type { GeoJsonObject } from "geojson";
 import type { UmkmFeature, RouteInfo } from "@/components/ExplorationMap";
@@ -224,15 +223,37 @@ export default function AnalysisTestPage() {
     }, [filterKecamatan, filterKelurahan]);
 
     useEffect(() => {
-        fetchUmkmMap();
+        let isMounted = true;
+        const load = async () => {
+            await Promise.resolve();
+            if (isMounted) fetchUmkmMap();
+        };
+        void load();
+        return () => { isMounted = false; };
     }, [fetchUmkmMap]);
 
     useEffect(() => {
-        fetchWilayah();
-        fetchStatistics();
+        let isMounted = true;
+        const load = async () => {
+            await Promise.resolve();
+            if (isMounted) {
+                fetchWilayah();
+                fetchStatistics();
+            }
+        };
+        void load();
+        return () => { isMounted = false; };
     }, [fetchWilayah, fetchStatistics]);
 
-    useEffect(() => { fetchStatistikFilter(); }, [fetchStatistikFilter]);
+    useEffect(() => {
+        let isMounted = true;
+        const load = async () => {
+            await Promise.resolve();
+            if (isMounted) fetchStatistikFilter();
+        };
+        void load();
+        return () => { isMounted = false; };
+    }, [fetchStatistikFilter]);
 
     // Fetch daftar rekomendasi UMKM dengan filter rating, harga, dan sorting
     const fetchSortedUmkm = useCallback(async () => {
@@ -280,12 +301,18 @@ export default function AnalysisTestPage() {
     }, [filterKategori, searchKeyword, filterKecamatan, filterKelurahan, filterRadius, startPoint, sortBy, filterMinRating, filterHarga, listPage]);
 
     useEffect(() => {
-        fetchSortedUmkm();
+        let isMounted = true;
+        const load = async () => {
+            await Promise.resolve();
+            if (isMounted) fetchSortedUmkm();
+        };
+        void load();
+        return () => { isMounted = false; };
     }, [fetchSortedUmkm]);
 
     // Reset pagination saat filter berubah
     useEffect(() => {
-        setListPage(1);
+        void Promise.resolve().then(() => setListPage(1));
     }, [filterKategori, searchKeyword, filterKecamatan, filterKelurahan, filterRadius, sortBy, filterMinRating, filterHarga]);
 
     // Fetch detail lengkap UMKM berdasarkan ID
@@ -376,11 +403,11 @@ export default function AnalysisTestPage() {
                 <header className="rounded-2xl bg-gradient-to-r from-emerald-800 via-teal-900 to-slate-900 p-6 text-white shadow-lg">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
-                            <span className="inline-block rounded-full bg-emerald-500/30 px-3 py-1 text-xs font-semibold tracking-wider uppercase text-emerald-200">
+                            <span className="inline-block rounded-full bg-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-200">
                                 Backend Testing & Visualizer
                             </span>
                             <h1 className="mt-2 text-2xl md:text-3xl font-extrabold tracking-tight">
-                                RINTIK — Ruang Informasi Titik Industri Kreatif
+                                RINTIK: Ruang Informasi Titik Industri Kreatif
                             </h1>
                             <p className="mt-1 text-sm text-emerald-100">
                                 Verifikasi Visual Seluruh Endpoint Backend WebGIS UMKM Kota Bogor
@@ -411,7 +438,7 @@ export default function AnalysisTestPage() {
                                     : "border-transparent text-emerald-100/70 hover:text-white"
                             }`}
                         >
-                            🧭 1. Eksplorasi UMKM & Rute (Pengunjung)
+                            1. Eksplorasi UMKM & Rute (Pengunjung)
                         </button>
                         <button
                             type="button"
@@ -422,7 +449,7 @@ export default function AnalysisTestPage() {
                                     : "border-transparent text-emerald-100/70 hover:text-white"
                             }`}
                         >
-                            📍 2. Analisis Lokasi Usaha (Pelaku UMKM)
+                            2. Analisis Lokasi Usaha (Pelaku UMKM)
                         </button>
                     </div>
                 </header>
@@ -558,7 +585,7 @@ export default function AnalysisTestPage() {
                             <div className="flex flex-col gap-3 pt-3 border-t border-slate-100">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-                                        ⚡ Urutkan:
+                                        Urutkan:
                                     </span>
                                     <button
                                         type="button"
@@ -569,7 +596,7 @@ export default function AnalysisTestPage() {
                                                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                                         }`}
                                     >
-                                        🌟 Rekomendasi (Rating + Jarak)
+                                        Rekomendasi (Rating + Jarak)
                                     </button>
                                     <button
                                         type="button"
@@ -580,7 +607,7 @@ export default function AnalysisTestPage() {
                                                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                                         }`}
                                     >
-                                        ⭐ Rating Tertinggi
+                                        Rating Tertinggi
                                     </button>
                                     <button
                                         type="button"
@@ -591,7 +618,7 @@ export default function AnalysisTestPage() {
                                                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                                         }`}
                                     >
-                                        📍 Jarak Terdekat
+                                        Jarak Terdekat
                                     </button>
                                     <button
                                         type="button"
@@ -602,7 +629,7 @@ export default function AnalysisTestPage() {
                                                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                                         }`}
                                     >
-                                        🏷️ Harga Termurah
+                                        Harga Termurah
                                     </button>
                                     <button
                                         type="button"
@@ -613,7 +640,7 @@ export default function AnalysisTestPage() {
                                                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                                         }`}
                                     >
-                                        💎 Harga Premium
+                                        Harga Premium
                                     </button>
                                 </div>
 
@@ -623,9 +650,9 @@ export default function AnalysisTestPage() {
                                         <span className="font-semibold text-slate-600">Min. Rating:</span>
                                         {[
                                             { label: "Semua", val: null },
-                                            { label: "⭐ 4.5+", val: 4.5 },
-                                            { label: "⭐ 4.7+", val: 4.7 },
-                                            { label: "⭐ 4.8+", val: 4.8 },
+                                            { label: "4.5+", val: 4.5 },
+                                            { label: "4.7+", val: 4.7 },
+                                            { label: "4.8+", val: 4.8 },
                                         ].map((r) => (
                                             <button
                                                 key={String(r.val)}
@@ -647,9 +674,9 @@ export default function AnalysisTestPage() {
                                         <span className="font-semibold text-slate-600">Rentang Harga:</span>
                                         {[
                                             { label: "Semua", val: "" },
-                                            { label: "🟢 < 25rb (Murah)", val: "murah" },
-                                            { label: "🟡 25rb - 50rb", val: "menengah" },
-                                            { label: "🔴 > 50rb (Premium)", val: "premium" },
+                                            { label: "< 25rb (Murah)", val: "murah" },
+                                            { label: "25rb - 50rb", val: "menengah" },
+                                            { label: "> 50rb (Premium)", val: "premium" },
                                         ].map((h) => (
                                             <button
                                                 key={h.val}
@@ -673,18 +700,18 @@ export default function AnalysisTestPage() {
                                 <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-4 space-y-3">
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-sm font-bold text-cyan-900">
-                                            📊 Statistik Persebaran — {filterKelurahan || filterKecamatan}
+                                            Statistik Persebaran: {filterKelurahan || filterKecamatan}
                                         </h3>
                                         <span className="text-lg font-black text-cyan-700">{statistikFilter.total_umkm} UMKM</span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <p className="text-xs font-bold uppercase text-slate-500 mb-2">Per Kategori</p>
+                                            <p className="text-xs font-bold text-slate-500 mb-2">Per Kategori</p>
                                             <div className="space-y-1">
                                                 {statistikFilter.per_kategori.map((k) => (
                                                     <div key={k.kategori} className="flex justify-between items-center text-xs">
                                                         <span className="flex items-center gap-1.5">
-                                                            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: KATEGORI_WARNA[k.kategori]?.fill || "#64748b" }}></span>
+                                                            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: KATEGORI_WARNA[k.kategori]?.fill || "var(--color-ink-muted)" }}></span>
                                                             {k.kategori}
                                                         </span>
                                                         <span className="font-bold">{k.jumlah}</span>
@@ -693,7 +720,7 @@ export default function AnalysisTestPage() {
                                             </div>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-bold uppercase text-slate-500 mb-2">Per Kecamatan</p>
+                                            <p className="text-xs font-bold text-slate-500 mb-2">Per Kecamatan</p>
                                             <div className="space-y-1">
                                                 {statistikFilter.per_kecamatan.map((kec) => (
                                                     <div key={kec.kecamatan} className="flex justify-between items-center text-xs">
@@ -717,7 +744,7 @@ export default function AnalysisTestPage() {
                                     </p>
                                     <p className="text-xs text-slate-500">
                                         • Titik Biru = Lokasi Anda (klik di peta untuk memindahkan).
-                                        • Klik pada marker UMKM lalu pilih &quot;🚗 Pandu Rute ke Sini&quot;.
+                                        • Klik pada marker UMKM lalu pilih &quot;Pandu Rute ke Sini&quot;.
                                     </p>
                                 </div>
 
@@ -747,8 +774,8 @@ export default function AnalysisTestPage() {
 
                             {/* Panel Detail UMKM Terpilih */}
                             {loadingDetail && (
-                                <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600 animate-pulse">
-                                    🔍 Memuat informasi detail UMKM...
+                                <div className="rounded-lg bg-slate-50 p-4 text-sm text-slate-600 motion-safe:animate-pulse">
+                                    Memuat informasi detail UMKM...
                                 </div>
                             )}
                             {selectedUmkm && !loadingDetail && (
@@ -757,7 +784,7 @@ export default function AnalysisTestPage() {
                                         <div className="space-y-1">
                                             <span
                                                 className="inline-block px-2 py-0.5 text-[10px] font-semibold text-white rounded-full"
-                                                style={{ backgroundColor: KATEGORI_WARNA[selectedUmkm.kategori]?.fill || "#64748b" }}
+                                                style={{ backgroundColor: KATEGORI_WARNA[selectedUmkm.kategori]?.fill || "var(--color-ink-muted)" }}
                                             >
                                                 {selectedUmkm.kategori}
                                             </span>
@@ -771,34 +798,34 @@ export default function AnalysisTestPage() {
                                         >✕</button>
                                     </div>
                                     <dl className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Deskripsi</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.deskripsi_produk || "Data tidak tersedia"}</dd></div>
-                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Alamat</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.alamat || "Data tidak tersedia"}</dd></div>
-                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Kecamatan</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.kecamatan || "-"}</dd></div>
-                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Kelurahan</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.kelurahan || "-"}</dd></div>
-                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Range Harga</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.range_harga || "Data tidak tersedia"}</dd></div>
-                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Rating</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.rating != null ? `${selectedUmkm.rating} / 5` : "Data tidak tersedia"}</dd></div>
-                                        <div><dt className="text-xs font-bold uppercase text-slate-500">Koordinat</dt><dd className="text-slate-700 mt-0.5 font-mono text-xs">{selectedUmkm.latitude}, {selectedUmkm.longitude}</dd></div>
+                                        <div><dt className="text-xs font-bold text-slate-500">Deskripsi</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.deskripsi_produk || "Data tidak tersedia"}</dd></div>
+                                        <div><dt className="text-xs font-bold text-slate-500">Alamat</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.alamat || "Data tidak tersedia"}</dd></div>
+                                        <div><dt className="text-xs font-bold text-slate-500">Kecamatan</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.kecamatan || "-"}</dd></div>
+                                        <div><dt className="text-xs font-bold text-slate-500">Kelurahan</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.kelurahan || "-"}</dd></div>
+                                        <div><dt className="text-xs font-bold text-slate-500">Range Harga</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.range_harga || "Data tidak tersedia"}</dd></div>
+                                        <div><dt className="text-xs font-bold text-slate-500">Rating</dt><dd className="text-slate-700 mt-0.5">{selectedUmkm.rating != null ? `${selectedUmkm.rating} / 5` : "Data tidak tersedia"}</dd></div>
+                                        <div><dt className="text-xs font-bold text-slate-500">Koordinat</dt><dd className="text-slate-700 mt-0.5 font-mono text-xs">{selectedUmkm.latitude}, {selectedUmkm.longitude}</dd></div>
                                     </dl>
                                     <button
                                         type="button"
                                         onClick={() => buatRuteKeUmkm(selectedUmkm.id_umkm, selectedUmkm.nama_umkm)}
                                         className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 transition"
                                     >
-                                        🚗 Pandu Rute ke UMKM Ini
+                                        Pandu Rute ke UMKM Ini
                                     </button>
                                 </div>
                             )}
 
                             {/* Panel Informasi Rute Aktif */}
                             {loadingRoute && (
-                                <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-700 animate-pulse">
-                                    🚗 Sedang menghitung rute tercepat via OSRM...
+                                <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-700 motion-safe:animate-pulse">
+                                    Sedang menghitung rute tercepat via OSRM...
                                 </div>
                             )}
 
                             {routeError && (
                                 <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">
-                                    ❌ {routeError}
+                                    (Gagal) {routeError}
                                 </div>
                             )}
 
@@ -806,7 +833,7 @@ export default function AnalysisTestPage() {
                                 <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-5 space-y-4 shadow-sm">
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                         <div className="space-y-1">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded">
+                                            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-200/70 px-2 py-0.5 rounded">
                                                 Rute ke {routeData.tujuan.nama_umkm}
                                             </span>
                                             <p className="text-xs text-slate-600 mt-0.5">
@@ -818,9 +845,9 @@ export default function AnalysisTestPage() {
                                         <div className="flex items-center gap-1.5 bg-white p-1 rounded-lg border border-emerald-200">
                                             {(
                                                 [
-                                                    { key: "motor", label: "🛵 Motor" },
-                                                    { key: "mobil", label: "🚗 Mobil" },
-                                                    { key: "jalan_kaki", label: "🚶 Jalan kaki" },
+                                                    { key: "motor", label: "Motor" },
+                                                    { key: "mobil", label: "Mobil" },
+                                                    { key: "jalan_kaki", label: "Jalan kaki" },
                                                 ] as const
                                             ).map((item) => (
                                                 <button
@@ -886,22 +913,22 @@ export default function AnalysisTestPage() {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                                 <div>
                                     <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                        📋 Daftar Rekomendasi UMKM
+                                        Daftar Rekomendasi UMKM
                                         <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
                                             {totalFilteredData} UMKM
                                         </span>
                                     </h2>
                                     <p className="text-xs text-slate-500 mt-1">
                                         Urutan: <span className="font-semibold text-slate-700">
-                                            {sortBy === "rating_jarak" && "🌟 Rekomendasi Terbaik (Rating & Jarak)"}
-                                            {sortBy === "rating" && "⭐ Rating Tertinggi"}
-                                            {sortBy === "jarak" && "📍 Jarak Terdekat dari Posisi Anda"}
-                                            {sortBy === "harga_termurah" && "🏷️ Harga Paling Terjangkau"}
-                                            {sortBy === "harga_termahal" && "💎 Harga Premium"}
+                                            {sortBy === "rating_jarak" && "Rekomendasi Terbaik (Rating & Jarak)"}
+                                            {sortBy === "rating" && "Rating Tertinggi"}
+                                            {sortBy === "jarak" && "Jarak Terdekat dari Posisi Anda"}
+                                            {sortBy === "harga_termurah" && "Harga Paling Terjangkau"}
+                                            {sortBy === "harga_termahal" && "Harga Premium"}
                                             {sortBy === "default" && "Bawaan"}
                                         </span>
                                         {filterKecamatan && ` · Wilayah: ${filterKelurahan || filterKecamatan}`}
-                                        {filterMinRating && ` · Min. ⭐ ${filterMinRating}`}
+                                        {filterMinRating && ` · Min. ${filterMinRating}`}
                                         {filterHarga && ` · Harga: ${filterHarga}`}
                                     </p>
                                 </div>
@@ -914,7 +941,7 @@ export default function AnalysisTestPage() {
                                         onClick={() => setListPage((p) => Math.max(1, p - 1))}
                                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
                                     >
-                                        ← Sebelumnya
+                                        Sebelumnya
                                     </button>
                                     <span className="text-xs font-medium text-slate-600">
                                         Hal. {listPage} / {Math.max(1, Math.ceil(totalFilteredData / 20))}
@@ -925,14 +952,14 @@ export default function AnalysisTestPage() {
                                         onClick={() => setListPage((p) => p + 1)}
                                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
                                     >
-                                        Berikutnya →
+                                        Berikutnya
                                     </button>
                                 </div>
                             </div>
 
                             {loadingSortedList ? (
-                                <div className="py-12 text-center text-sm text-slate-500 animate-pulse">
-                                    ⏳ Memuat daftar rekomendasi UMKM...
+                                <div className="py-12 text-center text-sm text-slate-500 motion-safe:animate-pulse">
+                                    Memuat daftar rekomendasi UMKM...
                                 </div>
                             ) : umkmListSorted.length === 0 ? (
                                 <div className="py-12 text-center text-sm text-slate-500">
@@ -941,7 +968,7 @@ export default function AnalysisTestPage() {
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {umkmListSorted.map((item) => {
-                                        const catColor = KATEGORI_WARNA[item.kategori]?.fill || "#64748b";
+                                        const catColor = KATEGORI_WARNA[item.kategori]?.fill || "var(--color-ink-muted)";
                                         const isSelected = selectedUmkmId === item.id_umkm;
 
                                         return (
@@ -977,17 +1004,17 @@ export default function AnalysisTestPage() {
                                                     <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
                                                         {item.rating != null && (
                                                             <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60">
-                                                                ⭐ {item.rating}
+                                                                Rating {item.rating}
                                                             </span>
                                                         )}
                                                         {item.range_harga && (
                                                             <span className="inline-flex items-center gap-1 text-slate-700 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                                                                🏷️ {item.range_harga}
+                                                                {item.range_harga}
                                                             </span>
                                                         )}
                                                         {item.jarak_meter != null && (
                                                             <span className="inline-flex items-center gap-1 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60">
-                                                                📍 {item.jarak_meter < 1000 ? `${item.jarak_meter} m` : `${(item.jarak_meter / 1000).toFixed(1)} km`}
+                                                                {item.jarak_meter < 1000 ? `${item.jarak_meter} m` : `${(item.jarak_meter / 1000).toFixed(1)} km`}
                                                             </span>
                                                         )}
                                                     </div>
@@ -999,14 +1026,14 @@ export default function AnalysisTestPage() {
                                                         onClick={() => fetchUmkmDetail(item.id_umkm)}
                                                         className="w-full rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition text-center"
                                                     >
-                                                        🔍 Detail
+                                                        Detail
                                                     </button>
                                                     <button
                                                         type="button"
                                                         onClick={() => buatRuteKeUmkm(item.id_umkm, item.nama_umkm)}
                                                         className="w-full rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition text-center"
                                                     >
-                                                        🚗 Rute
+                                                        Rute
                                                     </button>
                                                 </div>
                                             </div>
@@ -1020,7 +1047,7 @@ export default function AnalysisTestPage() {
                         {statistics && (
                             <section className="grid gap-4 md:grid-cols-2">
                                 <div className="rounded-xl bg-white p-5 shadow-sm space-y-3">
-                                    <h3 className="text-sm font-bold uppercase text-slate-600">
+                                    <h3 className="text-sm font-bold text-slate-600">
                                         Sebaran UMKM per Kategori
                                     </h3>
                                     <div className="space-y-2">
@@ -1039,7 +1066,7 @@ export default function AnalysisTestPage() {
                                 </div>
 
                                 <div className="rounded-xl bg-white p-5 shadow-sm space-y-3">
-                                    <h3 className="text-sm font-bold uppercase text-slate-600">
+                                    <h3 className="text-sm font-bold text-slate-600">
                                         Sebaran UMKM per Kecamatan
                                     </h3>
                                     <div className="space-y-2">
@@ -1149,7 +1176,7 @@ export default function AnalysisTestPage() {
 
                             {analisisError && (
                                 <p className="mt-4 rounded-lg bg-red-100 p-3 text-red-700 text-sm">
-                                    ❌ {analisisError}
+                                    (Gagal) {analisisError}
                                 </p>
                             )}
                         </section>
@@ -1190,7 +1217,7 @@ export default function AnalysisTestPage() {
                                 <span className="flex items-center gap-1.5">
                                     <span
                                         className="w-3 h-3 rounded-full inline-block"
-                                        style={{ backgroundColor: KATEGORI_WARNA[kategori]?.fill || "#ea580c" }}
+                                        style={{ backgroundColor: KATEGORI_WARNA[kategori]?.fill || "var(--color-orange)" }}
                                     ></span>
                                     UMKM Sejenis ({kategori})
                                 </span>
@@ -1206,11 +1233,11 @@ export default function AnalysisTestPage() {
                                         <span className="flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                                             ✓ Jenis usaha ({kategori})
                                         </span>
-                                        <span className="text-slate-300">—</span>
+                                        <span className="text-slate-300">/</span>
                                         <span className="flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                                             ✓ Titik ({hasil.parameter.latitude}, {hasil.parameter.longitude})
                                         </span>
-                                        <span className="text-slate-300">—</span>
+                                        <span className="text-slate-300">/</span>
                                         <span className="flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
                                             ✓ Radius ({radius} meter)
                                         </span>
@@ -1238,7 +1265,7 @@ export default function AnalysisTestPage() {
                                     {/* Proximity Jalan & Sekolah Terdekat */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                            <p className="text-[11px] font-bold text-slate-400">
                                                 Jalan Terdekat
                                             </p>
                                             <p className="text-2xl font-black text-slate-900 mt-1">
@@ -1250,7 +1277,7 @@ export default function AnalysisTestPage() {
                                         </div>
 
                                         <div className="rounded-xl border border-slate-200 bg-white p-4">
-                                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                                            <p className="text-[11px] font-bold text-slate-400">
                                                 Sekolah Terdekat
                                             </p>
                                             <p className="text-2xl font-black text-slate-900 mt-1">
@@ -1264,7 +1291,7 @@ export default function AnalysisTestPage() {
 
                                     {/* UMKM Sejenis Terdekat (Daftar Pesaing Terdekat) */}
                                     <div className="space-y-3 pt-2 border-t border-slate-100">
-                                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                                        <h3 className="text-xs font-bold text-slate-600">
                                             UMKM Sejenis Terdekat
                                         </h3>
 

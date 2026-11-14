@@ -1,26 +1,148 @@
+/* Hallmark:v2.0.0 | c=16 t=0 w=0 l=0 i=0 | 2026-11-07 */
+/* Hallmark · shape: scroll-atlas-workbench · theme: custom (rintik-bogor-locked) · surface: absolute · genre: editorial · hero: full-bleed-stage · signature: interactive-bogor-yellow-map-choreography */
+/* Hallmark · critique: contrasting warm beige background (#F5F5DC) against primary golden yellow (#FBC02D), secondary crimson red (#C62828), and optional amber orange (#FF8F00) anchors both the scroll story and floating Google-Maps-style spatial workbench */
+/* Hallmark · waive 47b · bespoke scroll choreography · bespoke scroll choreography and shutter transition mandated by locked UIUX in docs uiux landingpage */
+/* Hallmark · waive 7b · surface: absolute · palet warna rintik bogor memerlukan putih dan hitam murni */
+/* Hallmark · answered F15 · unified container width, token-bound palette, and tactile button states across landing and map routes */
+
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Core Palette (Locked User Specification) */
+  --color-bg: #F5F5DC;            /* Background Utama (Beige / Cream) */
+  --color-primary: #FBC02D;       /* Primer (Kuning RINTIK: Peta Bogor, Menu Drawer, Shutter, Footer, Badge) */
+  --color-secondary: #C62828;     /* Sekunder (Merah RINTIK: Teks Tentang, Kontainer Merah, Kartu Stat, Pin Kandidat) */
+  --color-orange: #FF8F00;        /* Oranye Optional (Tombol CTA Utama, Buffer, Highlight) */
+  --color-white: #FFFFFF;         /* Putih Normal */
+  --color-black: #000000;         /* Hitam Normal */
+
+  /* Semantic Surface & Brand Aliases */
+  --bg-cream: #F5F5DC;            /* Latar utama Landing Page & Panel Floating Peta */
+  --bg-surface-white: #FFFFFF;    /* Kartu item UMKM & kontainer grafik */
+  --bg-surface-black: #000000;    /* Permukaan hitam normal */
+  --bg-hero-overlay: rgba(0, 0, 0, 0.45);
+  --bg-shutter-dark: #000000;     /* Latar celah tengah saat transisi shutter */
+
+  --brand-amber: #FBC02D;         /* Alias Primer (#FBC02D) */
+  --brand-red: #C62828;           /* Alias Sekunder (#C62828) */
+  --brand-red-dark: #9E1F1F;      /* Hover / border merah sekunder */
+  --brand-red-hover: #9E1F1F;     /* Alias hover merah sekunder */
+  --brand-orange: #FF8F00;        /* Alias Oranye Optional (#FF8F00) */
+  --brand-orange-hover: #E68100;  /* Hover tombol oranye */
+
+  /* Typography & Ink Colors */
+  --ink-primary: #000000;         /* Teks hitam normal */
+  --ink-secondary: #333333;       /* Teks subjudul & deskripsi sekunder */
+  --ink-muted: #666666;           /* Teks metadata, sumber data, & caption */
+  --ink-on-dark: #FFFFFF;         /* Teks putih normal di atas hero & kontainer merah */
+
+  /* Borders & Focus */
+  --border-cream: #E2E2C4;        /* Garis tepi halus di atas background #F5F5DC */
+  --border-subtle: #E5E5E5;       /* Garis pemisah tipis di dalam kartu putih */
+  --focus-ring: #FF8F00;          /* Warna outline :focus-visible instan */
+
+  /* 5 Kategori Resmi UMKM RINTIK */
+  --cat-kuliner: #E11D74;         /* Magenta/Pink-Red — Kuliner */
+  --cat-fashion: #FF8F00;         /* Oranye — Fashion */
+  --cat-jasa: #000000;            /* Hitam/Charcoal — Jasa */
+  --cat-kerajinan: #2E8B3C;       /* Hijau Daun — Kerajinan */
+  --cat-teknologi: #2538B8;       /* Biru Indigo/Royal — Teknologi */
+
+  /* Map Spatial Elements */
+  --map-user-blue: #2563EB;       /* Titik biru lokasi pengguna */
+  --map-user-halo: rgba(37, 99, 235, 0.2);
+  --map-route-red: #C62828;       /* Garis polyline rute navigasi (Sekunder) */
+  --map-buffer-stroke: #FF8F00;   /* Garis putus-putus lingkaran buffer analisis (Oranye) */
+  --map-buffer-fill: rgba(255, 143, 0, 0.16);
+
+  /* Typography Families */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--color-bg);
+  --color-foreground: var(--ink-primary);
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-orange: var(--color-orange);
+
+  --color-bg-cream: var(--bg-cream);
+  --color-surface-white: var(--bg-surface-white);
+  --color-surface-black: var(--bg-surface-black);
+  --color-hero-overlay: var(--bg-hero-overlay);
+
+  --color-brand-amber: var(--brand-amber);
+  --color-brand-red: var(--brand-red);
+  --color-brand-red-dark: var(--brand-red-dark);
+  --color-brand-red-hover: var(--brand-red-hover);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-hover: var(--brand-orange-hover);
+
+  --color-ink-primary: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-on-dark: var(--ink-on-dark);
+
+  --color-border-cream: var(--border-cream);
+  --color-border-subtle: var(--border-subtle);
+  --color-focus-ring: var(--focus-ring);
+
+  --color-cat-kuliner: var(--cat-kuliner);
+  --color-cat-fashion: var(--cat-fashion);
+  --color-cat-jasa: var(--cat-jasa);
+  --color-cat-kerajinan: var(--cat-kerajinan);
+  --color-cat-teknologi: var(--cat-teknologi);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html, body {
+  overflow-x: clip;
+  -webkit-overflow-scrolling: touch;
+  background-color: var(--color-bg, #F5F5DC);
+  background: #F5F5DC;
+  color: var(--ink-primary);
+  font-family: var(--font-sans);
+}
+
+/* Ensure GSAP pin spacers allow continuous transparent background pass-through */
+.pin-spacer {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+button:active, a:active {
+  transform: scale(0.98);
+}
+
+button:disabled, input:disabled, select:disabled, textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@utility animate-scroll-bounce {
+  animation: scrollBounce 1.8s ease-in-out infinite;
+}
+
+@keyframes scrollBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  .animate-scroll-bounce {
+    animation: none;
+  }
 }

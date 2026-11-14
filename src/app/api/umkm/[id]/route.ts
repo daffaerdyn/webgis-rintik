@@ -13,7 +13,7 @@ export async function GET(
         const { id } = await context.params;
 
         // 2. Validasi format ID UMKM
-        if (!/^UMKM[0-9]+$/.test(id)) {
+        if (!/^UMKM(-BGR-)?[0-9]+$/.test(id)) {
             return NextResponse.json(
                 {
                     success: false,
@@ -37,7 +37,8 @@ export async function GET(
                 latitude,
                 longitude,
                 range_harga,
-                rating
+                rating,
+                source
             `)
             .eq("id_umkm", id)
             .maybeSingle();

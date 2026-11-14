@@ -15,6 +15,19 @@ import L from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import { KATEGORI_WARNA } from "@/lib/constants";
 
+const BUFFER_GEOJSON_STYLE = {
+    color: "var(--color-orange)",
+    weight: 2,
+    dashArray: "6, 6",
+    fillColor: "var(--color-orange)",
+    fillOpacity: 0.12,
+};
+
+const DEFAULT_UMKM_COLOR = {
+    fill: "var(--color-orange)",
+    stroke: "var(--brand-orange-hover)",
+};
+
 type UmkmPoint = {
     id_umkm?: string | number;
     nama_umkm?: string;
@@ -160,13 +173,7 @@ export default function AnalysisMap({
                         key={JSON.stringify(buffer)}
                         data={buffer}
                         interactive={false}
-                        style={{
-                            color: "#ea580c",
-                            weight: 2,
-                            dashArray: "6, 6",
-                            fillColor: "#ea580c",
-                            fillOpacity: 0.12,
-                        }}
+                        style={BUFFER_GEOJSON_STYLE}
                     />
                 )}
 
@@ -183,7 +190,7 @@ export default function AnalysisMap({
                     }
 
                     const katKey = item.kategori || kategori || "Kuliner";
-                    const warna = KATEGORI_WARNA[katKey] || { fill: "#ea580c", stroke: "#9a3412" };
+                    const warna = KATEGORI_WARNA[katKey] || DEFAULT_UMKM_COLOR;
 
                     return (
                         <CircleMarker
