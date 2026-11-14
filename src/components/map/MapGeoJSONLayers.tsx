@@ -488,7 +488,7 @@ export function MapGeoJSONLayers({
       if (bufferCenter) {
         const d = Math.round(calculateDistanceMeters(bufferCenter.lat, bufferCenter.lng, lat, lng));
         bufferDistInfo = `
-          <div style="font-size:10px; color:#059669; font-weight:700; margin-top:3px; display:flex; align-items:center; gap:4px;">
+          <div style="font-size:12px; color:#059669; font-weight:700; margin-top:4px; display:flex; align-items:center; gap:4px;">
             <span>📍 Jarak di dalam buffer: ± ${d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${d} m`}</span>
           </div>
         `;
@@ -497,15 +497,15 @@ export function MapGeoJSONLayers({
       const popup = L.popup({ offset: [0, -10] })
         .setLatLng([lat, lng])
         .setContent(`
-          <div style="font-size:12px; padding:4px; font-family:var(--font-sans);">
-            <div style="font-size:10px; font-weight:800; color:#059669; text-transform:uppercase;">
+          <div style="font-size:14px; padding:6px; font-family:var(--font-sans); line-height:1.4;">
+            <div style="font-size:11px; font-weight:800; color:#059669; text-transform:uppercase; letter-spacing:0.025em;">
               ${jenjang}
             </div>
-            <div style="font-weight:700; color:#0f172a; margin-top:2px;">
+            <div style="font-size:14px; font-weight:700; color:#0f172a; margin-top:2px;">
               ${namaSekolah}
             </div>
             ${bufferDistInfo}
-            <div style="font-size:10px; color:#64748b; margin-top:2px;">
+            <div style="font-size:11px; color:#64748b; margin-top:3px;">
               Potensi Pasar Pelajar dan Mahasiswa
             </div>
           </div>
