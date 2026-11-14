@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Marker, Polyline } from "react-leaflet";
+import { Circle, Marker, Polyline } from "react-leaflet";
 import type L from "leaflet";
 import MapLeafletCore, { BOGOR_COORDINATES } from "./MapLeafletCore";
 import MapGeoJSONLayers from "./MapGeoJSONLayers";
@@ -391,7 +391,7 @@ export function MapPengunjung() {
         }}
         onMapClick={handleMapClick}
       >
-        {/* Layer GeoJSON Pendukung */}
+        {/* Layer GeoJSON Pendukung (Sekolah & Kampus masuk di dalam buffer saja) */}
         <MapGeoJSONLayers
           showWilayah={showWilayah}
           showJalan={showJalan}
@@ -400,7 +400,25 @@ export function MapPengunjung() {
           selectedKecamatan={selectedKecamatan}
           selectedKelurahan={selectedKelurahan}
           fitOnSelect={true}
+          bufferCenter={userCoords}
+          bufferRadiusMeters={radiusMeters}
+          onlyShowSekolahInBuffer={true}
         />
+
+        {/* Lingkaran Buffer Jangkauan Pengunjung */}
+        {radiusMeters > 0 && (
+          <Circle
+            center={[userCoords.lat, userCoords.lng]}
+            radius={radiusMeters}
+            pathOptions={{
+              color: "#2563EB",
+              weight: 2,
+              dashArray: "6, 6",
+              fillColor: "#2563EB",
+              fillOpacity: radiusMeters >= 20000 ? 0.03 : 0.1,
+            }}
+          />
+        )}
 
         {/* Marker Titik Pengguna (Titik Biru dengan Pulse Halo) */}
         <Marker

@@ -25,6 +25,9 @@ export interface MapGeoJSONLayersProps {
   fitOnSelect?: boolean;
   onWilayahLoaded?: (data: FeatureCollection) => void;
   onSchoolClick?: (school: Feature<Geometry>) => void;
+  bufferCenter?: { lat: number; lng: number } | null;
+  bufferRadiusMeters?: number | null;
+  onlyShowSekolahInBuffer?: boolean;
 }
 
 /**
@@ -35,6 +38,28 @@ export interface MapGeoJSONLayersProps {
  * 4. Poligon Area Permukiman (Canvas Renderer + smoothFactor)
  * 5. Titik Fasilitas Sekolah / Kampus (Retina Canvas Sprite Layer + Popup)
  */
+/**
+ * Menghitung jarak geodesik bola bumi (Haversine formula) dalam meter.
+ */
+function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000; // Radius bumi dalam meter
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export function MapGeoJSONLayers({
   showWilayah = true,
   showJalan = false,
@@ -45,6 +70,9 @@ export function MapGeoJSONLayers({
   fitOnSelect = true,
   onWilayahLoaded,
   onSchoolClick,
+  bufferCenter,
+  bufferRadiusMeters,
+  onlyShowSekolahInBuffer = false,
 }: MapGeoJSONLayersProps) {
   const map = useMap();
 
@@ -402,11 +430,21 @@ export function MapGeoJSONLayers({
     };
   }, [map]);
 
-  // Sinkronisasi data Sekolah ke Canvas Overlay
+  // Sinkronisasi data Sekolah ke Canvas Overlay (difilter hanya di dalam buffer jika onlyShowSekolahInBuffer = true)
   useEffect(() => {
     if (!sekolahOverlayRef.current || !map) return;
 
     if (!showSekolah || !sekolahData || !sekolahData.features) {
+      sekolahOverlayRef.current.updateData([], null, false);
+      if (schoolPopupRef.current) {
+        schoolPopupRef.current.remove();
+        schoolPopupRef.current = null;
+      }
+      return;
+    }
+
+    // Jika mode buffer aktif namun belum ada titik/radius buffer, sembunyikan semua pin sekolah
+    if (onlyShowSekolahInBuffer && (!bufferCenter || !bufferRadiusMeters || bufferRadiusMeters <= 0)) {
       sekolahOverlayRef.current.updateData([], null, false);
       if (schoolPopupRef.current) {
         schoolPopupRef.current.remove();
@@ -423,6 +461,14 @@ export function MapGeoJSONLayers({
       const [lng, lat] = coords;
       if (typeof lat !== "number" || typeof lng !== "number") return;
 
+      // Filter: hanya masukkan jika berada di dalam radius buffer
+      if (onlyShowSekolahInBuffer && bufferCenter && bufferRadiusMeters && bufferRadiusMeters > 0) {
+        const dist = calculateDistanceMeters(bufferCenter.lat, bufferCenter.lng, lat, lng);
+        if (dist > bufferRadiusMeters) {
+          return;
+        }
+      }
+
       items.push({
         id: `school-${idx}`,
         lat,
@@ -438,6 +484,16 @@ export function MapGeoJSONLayers({
       const namaSekolah = String(p.nama || p.nama_sekolah || p.name || "Fasilitas Pendidikan");
       const jenjang = String(p.tingkat || p.jenjang || p.kategori || "Sekolah / Kampus");
 
+      let bufferDistInfo = "";
+      if (bufferCenter) {
+        const d = Math.round(calculateDistanceMeters(bufferCenter.lat, bufferCenter.lng, lat, lng));
+        bufferDistInfo = `
+          <div style="font-size:10px; color:#059669; font-weight:700; margin-top:3px; display:flex; align-items:center; gap:4px;">
+            <span>📍 Jarak di dalam buffer: ± ${d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${d} m`}</span>
+          </div>
+        `;
+      }
+
       const popup = L.popup({ offset: [0, -10] })
         .setLatLng([lat, lng])
         .setContent(`
@@ -448,6 +504,7 @@ export function MapGeoJSONLayers({
             <div style="font-weight:700; color:#0f172a; margin-top:2px;">
               ${namaSekolah}
             </div>
+            ${bufferDistInfo}
             <div style="font-size:10px; color:#64748b; margin-top:2px;">
               Potensi Pasar Pelajar dan Mahasiswa
             </div>
@@ -461,7 +518,7 @@ export function MapGeoJSONLayers({
         onSchoolClick(feature);
       }
     });
-  }, [map, showSekolah, sekolahData, onSchoolClick]);
+  }, [map, showSekolah, sekolahData, onSchoolClick, bufferCenter, bufferRadiusMeters, onlyShowSekolahInBuffer]);
 
   return null;
 }

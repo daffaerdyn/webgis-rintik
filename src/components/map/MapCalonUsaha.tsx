@@ -52,7 +52,7 @@ export function MapCalonUsaha() {
   const [showUmkm, setShowUmkm] = useState(true);
   const [showWilayah, setShowWilayah] = useState(true);
   const [showJalan, setShowJalan] = useState(false);
-  const [showSekolah, setShowSekolah] = useState(false);
+  const [showSekolah, setShowSekolah] = useState(true);
   const [showPermukiman, setShowPermukiman] = useState(false);
 
   // Zoom Actions (+ / -)
@@ -461,12 +461,15 @@ export function MapCalonUsaha() {
         }}
         onMapClick={handleMapClick}
       >
-        {/* Layer Batas Wilayah Administrasi & Layer Pendukung (Persis Peta Pengunjung) */}
+        {/* Layer Batas Wilayah Administrasi & Layer Pendukung (Sekolah & Kampus masuk di dalam buffer saja) */}
         <MapGeoJSONLayers
           showWilayah={showWilayah}
           showJalan={showJalan}
           showSekolah={showSekolah}
           showPermukiman={showPermukiman}
+          bufferCenter={candidatePoint}
+          bufferRadiusMeters={radiusMeters}
+          onlyShowSekolahInBuffer={true}
         />
 
         {/* Lingkaran Buffer Analisis (Oranye Putus-putus Sesuai DESIGN.md) */}
