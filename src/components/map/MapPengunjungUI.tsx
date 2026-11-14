@@ -359,9 +359,9 @@ export function MapPengunjungUI({
               <span>Radius:</span>
               <span className="font-bold text-[var(--brand-red)]">
                 {radiusMeters <= 0
-                  ? "0 Km"
+                  ? "0 KM"
                   : radiusMeters >= 1000
-                  ? `${(radiusMeters / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Km`
+                  ? `${(radiusMeters / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} KM`
                   : `${radiusMeters} m`}
               </span>
               {isRadiusOpen ? (
@@ -381,15 +381,15 @@ export function MapPengunjungUI({
                       Radius Jangkauan
                     </div>
                     <div className="text-xs text-[var(--ink-muted)]">
-                      Jarak custom 0 sampai 20 Km
+                      Jarak custom 0 sampai 20 KM
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-extrabold text-[var(--brand-red)] bg-red-50 border border-red-200 px-3 py-0.5 rounded-full shadow-xs">
                       {radiusMeters <= 0
-                        ? "0 Km"
+                        ? "0 KM"
                         : radiusMeters >= 1000
-                        ? `${(radiusMeters / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} Km`
+                        ? `${(radiusMeters / 1000).toLocaleString("id-ID", { maximumFractionDigits: 1 })} KM`
                         : `${radiusMeters} m`}
                     </span>
                   </div>
@@ -408,35 +408,35 @@ export function MapPengunjungUI({
                   />
                   <div className="flex justify-between text-xs text-[var(--ink-muted)] font-medium px-0.5">
                     <span>0</span>
-                    <span>5K</span>
-                    <span>10K</span>
-                    <span>15K</span>
-                    <span>20 Km</span>
+                    <span>5 KM</span>
+                    <span>10 KM</span>
+                    <span>15 KM</span>
+                    <span>20 KM</span>
                   </div>
                 </div>
 
                 {/* Stepper Buttons for Quick Single Kilometer Adjustments (supports any odd or even Km) */}
                 <div className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--color-bg)] rounded-xl border border-[var(--border-subtle)] text-sm">
                   <span className="text-xs sm:text-sm font-medium text-[var(--ink-secondary)]">
-                    Sesuaikan per 1 Km:
+                    Sesuaikan per 1 KM:
                   </span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => onRadiusChange(Math.max(0, radiusMeters - 1000))}
                       className="w-7 h-7 rounded-lg bg-[var(--bg-surface-white)] hover:bg-[var(--border-cream)] active:scale-[0.98] text-[var(--ink-primary)] font-bold flex items-center justify-center transition-colors border border-[var(--border-subtle)] shadow-xs focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-sm"
-                      title="Kurangi 1 Km"
+                      title="Kurangi 1 KM"
                     >
                       -
                     </button>
                     <span className="min-w-[48px] text-center font-bold text-[var(--ink-primary)] text-sm">
-                      {radiusMeters >= 1000 ? `${(radiusMeters / 1000).toFixed(0)} km` : `${radiusMeters}m`}
+                      {radiusMeters >= 1000 ? `${(radiusMeters / 1000).toFixed(0)} KM` : `${radiusMeters}m`}
                     </span>
                     <button
                       type="button"
                       onClick={() => onRadiusChange(Math.min(20000, radiusMeters + 1000))}
                       className="w-7 h-7 rounded-lg bg-[var(--bg-surface-white)] hover:bg-[var(--border-cream)] active:scale-[0.98] text-[var(--ink-primary)] font-bold flex items-center justify-center transition-colors border border-[var(--border-subtle)] shadow-xs focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] text-sm"
-                      title="Tambah 1 Km"
+                      title="Tambah 1 KM"
                     >
                       +
                     </button>
@@ -452,14 +452,14 @@ export function MapPengunjungUI({
                     {[
                       { label: "250m", value: 250 },
                       { label: "500m", value: 500 },
-                      { label: "1K", value: 1000 },
-                      { label: "2K", value: 2000 },
-                      { label: "3K", value: 3000 },
-                      { label: "4K", value: 4000 },
-                      { label: "5K", value: 5000 },
-                      { label: "10K", value: 10000 },
-                      { label: "15K", value: 15000 },
-                      { label: "20K", value: 20000 },
+                      { label: "1 KM", value: 1000 },
+                      { label: "2 KM", value: 2000 },
+                      { label: "3 KM", value: 3000 },
+                      { label: "4 KM", value: 4000 },
+                      { label: "5 KM", value: 5000 },
+                      { label: "10 KM", value: 10000 },
+                      { label: "15 KM", value: 15000 },
+                      { label: "20 KM", value: 20000 },
                     ].map((item) => (
                       <button
                         key={item.value}
@@ -579,7 +579,7 @@ export function MapPengunjungUI({
 
                           {item.jarak_meter != null && (
                             <span className="text-[var(--brand-red)] font-bold text-xs sm:text-sm shrink-0">
-                              ± {item.jarak_meter >= 1000 ? `${(item.jarak_meter / 1000).toFixed(1)} km` : `${item.jarak_meter} m`}
+                              ± {item.jarak_meter >= 1000 ? `${(item.jarak_meter / 1000).toFixed(1)} KM` : `${item.jarak_meter} m`}
                             </span>
                           )}
                         </div>
@@ -815,7 +815,7 @@ export function MapPengunjungUI({
                 ) : routeResult ? (
                   <div className="p-4 rounded-xl bg-[var(--color-bg)] border border-[var(--brand-red)]">
                     <div className="text-xl font-extrabold text-[var(--brand-red)]">
-                      ± {routeResult.distanceKm} km · {routeResult.durationMinutes} mnt
+                      ± {routeResult.distanceKm} KM · {routeResult.durationMinutes} mnt
                     </div>
                     <div className="text-xs sm:text-sm text-[var(--ink-secondary)] mt-1">
                       {routeResult.isFallback

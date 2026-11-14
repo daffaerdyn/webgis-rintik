@@ -160,7 +160,13 @@ export function MapCalonUsahaUI({
   return (
     <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden font-[var(--font-sans)]">
       {/* 1. TOP-LEFT NAVIGATION & 3-STEP PROGRESS BAR (Style Meniru Bar Search Peta Pengunjung) */}
-      <div className="absolute top-4 left-4 max-w-[calc(100vw-32px)] pointer-events-auto flex flex-col gap-2 z-30">
+      <div
+        className={`absolute top-4 left-4 ${
+          isResultPanelOpen && analysisData
+            ? "max-w-[calc(100vw-420px)]"
+            : "max-w-[calc(100vw-32px)]"
+        } pointer-events-auto flex flex-col gap-2 z-30 transition-all`}
+      >
         {/* ROW 1: Standalone Back Button + Info Bar Pill + Button Pilih Kategori */}
         <div className="flex items-center gap-2 max-w-full overflow-x-auto no-scrollbar scroll-smooth py-0.5">
           {/* A. STANDALONE BUTTON KEMBALI */}
@@ -214,46 +220,46 @@ export function MapCalonUsahaUI({
               }`}
             />
           </button>
-
-          {/* D. BAR PENENTUAN BUFFER / RADIUS (PINDAH KE SEBELAH KANAN BUTTON KATEGORI - SESUAI SS3) */}
-          {candidatePoint && (
-            <div className="bg-[var(--bg-surface-white)] rounded-full px-4 py-2 shadow-md border border-[var(--border-subtle)] flex items-center gap-3 shrink-0 animate-in fade-in duration-150">
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Sliders className="w-4 h-4 text-[var(--brand-orange)]" />
-                <span className="text-sm font-bold text-[var(--ink-primary)] whitespace-nowrap">
-                  Buffer: {radiusMeters >= 1000 ? `${radiusMeters / 1000} Km` : `${radiusMeters} m`}
-                </span>
-              </div>
-
-              <input
-                type="range"
-                min="250"
-                max="5000"
-                step="250"
-                value={radiusMeters}
-                onChange={(e) => onRadiusChange(Number(e.target.value))}
-                className="w-20 sm:w-28 accent-[var(--brand-orange)] cursor-pointer h-2 bg-slate-200 rounded-lg appearance-none"
-              />
-
-              <div className="flex gap-1.5 shrink-0">
-                {[250, 500, 1000, 2500].map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => onRadiusChange(r)}
-                    className={`px-2.5 py-0.5 text-xs font-bold rounded-full border transition-colors whitespace-nowrap focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] cursor-pointer ${
-                      radiusMeters === r
-                        ? "bg-[var(--brand-orange)] text-[var(--ink-on-dark)] border-[var(--brand-orange)] shadow-xs"
-                        : "bg-[var(--color-bg)] text-[var(--ink-secondary)] border-[var(--border-subtle)] hover:bg-[var(--border-cream)]"
-                    }`}
-                  >
-                    {r >= 1000 ? `${r / 1000}K` : `${r}m`}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* ROW 2: BAR PENENTUAN BUFFER / RADIUS (BERADA DI ROW SENDIRI AGAR TIDAK KETIMPA PANEL HASIL DI KANAN) */}
+        {candidatePoint && (
+          <div className="bg-[var(--bg-surface-white)] rounded-full px-4 py-2 shadow-md border border-[var(--border-subtle)] flex items-center gap-3 shrink-0 animate-in fade-in duration-150 self-start max-w-full overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Sliders className="w-4 h-4 text-[var(--brand-orange)]" />
+              <span className="text-sm font-bold text-[var(--ink-primary)] whitespace-nowrap">
+                Buffer: {radiusMeters >= 1000 ? `${radiusMeters / 1000} KM` : `${radiusMeters} m`}
+              </span>
+            </div>
+
+            <input
+              type="range"
+              min="250"
+              max="5000"
+              step="250"
+              value={radiusMeters}
+              onChange={(e) => onRadiusChange(Number(e.target.value))}
+              className="w-20 sm:w-28 accent-[var(--brand-orange)] cursor-pointer h-2 bg-slate-200 rounded-lg appearance-none"
+            />
+
+            <div className="flex gap-1.5 shrink-0">
+              {[250, 500, 1000, 2500].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => onRadiusChange(r)}
+                  className={`px-2.5 py-0.5 text-xs font-bold rounded-full border transition-colors whitespace-nowrap focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] cursor-pointer ${
+                    radiusMeters === r
+                      ? "bg-[var(--brand-orange)] text-[var(--ink-on-dark)] border-[var(--brand-orange)] shadow-xs"
+                      : "bg-[var(--color-bg)] text-[var(--ink-secondary)] border-[var(--border-subtle)] hover:bg-[var(--border-cream)]"
+                  }`}
+                >
+                  {r >= 1000 ? `${r / 1000} KM` : `${r}m`}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* FLOATING CATEGORY SELECTOR MODAL / DROPDOWN (Rendered at top-level so it is never clipped by overflow-x) */}
@@ -377,7 +383,7 @@ export function MapCalonUsahaUI({
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full border-2 border-dashed border-[var(--brand-orange)]" />
             <span className="text-[var(--ink-muted)]">
-              Radius {radiusMeters >= 1000 ? `${radiusMeters / 1000} Km` : `${radiusMeters} m`}
+              Radius {radiusMeters >= 1000 ? `${radiusMeters / 1000} KM` : `${radiusMeters} m`}
             </span>
           </div>
         </div>
@@ -442,7 +448,7 @@ export function MapCalonUsahaUI({
                 Hasil analisis spasial
               </h2>
               <p className="text-xs sm:text-sm text-[var(--ink-muted)] font-medium mt-0.5">
-                {selectedCategory} · {candidatePoint?.lat.toFixed(5)} ; {candidatePoint?.lng.toFixed(5)} · radius {radiusMeters} meter
+                {selectedCategory} · {candidatePoint?.lat.toFixed(5)} ; {candidatePoint?.lng.toFixed(5)} · radius {radiusMeters >= 1000 ? `${radiusMeters / 1000} KM` : `${radiusMeters} meter`}
               </p>
             </div>
           </div>
@@ -455,7 +461,7 @@ export function MapCalonUsahaUI({
                 {analysisData.umkm_sejenis.jumlah}
               </div>
               <div className="text-sm font-bold text-[var(--ink-primary)] mt-1.5">
-                UMKM Sejenis ({selectedCategory}) dalam radius {radiusMeters} meter
+                UMKM Sejenis ({selectedCategory}) dalam radius {radiusMeters >= 1000 ? `${radiusMeters / 1000} KM` : `${radiusMeters} meter`}
               </div>
             </div>
 
@@ -583,7 +589,7 @@ export function MapCalonUsahaUI({
 
       {/* 7. LEFT FLOATING PANEL: INFORMASI UMKM SEJENIS (SEPERTI MAP PENGUNJUNG SS4) */}
       {isLeftPanelOpen && candidatePoint && (
-        <div className="absolute top-[68px] left-4 bottom-4 sm:bottom-6 w-full max-w-[calc(100vw-32px)] sm:max-w-[380px] bg-[var(--bg-surface-white)] rounded-2xl shadow-2xl border border-[var(--border-subtle)] flex flex-col pointer-events-auto overflow-hidden z-30 animate-in fade-in slide-in-from-left-4 duration-200">
+        <div className="absolute top-[116px] left-4 bottom-4 sm:bottom-6 w-full max-w-[calc(100vw-32px)] sm:max-w-[380px] bg-[var(--bg-surface-white)] rounded-2xl shadow-2xl border border-[var(--border-subtle)] flex flex-col pointer-events-auto overflow-hidden z-30 animate-in fade-in slide-in-from-left-4 duration-200">
           {/* STATE 1: LIST VIEW (SESUAI SS2) */}
           {competitorSidebarState === "LIST" && (
             <div className="flex flex-col h-full">
@@ -683,7 +689,7 @@ export function MapCalonUsahaUI({
 
                           {item.jarak_meter != null && (
                             <span className="text-[var(--brand-red)] font-bold text-xs sm:text-sm shrink-0">
-                              ± {item.jarak_meter >= 1000 ? `${(item.jarak_meter / 1000).toFixed(1)} km` : `${item.jarak_meter} m`}
+                              ± {item.jarak_meter >= 1000 ? `${(item.jarak_meter / 1000).toFixed(1)} KM` : `${item.jarak_meter} m`}
                             </span>
                           )}
                         </div>

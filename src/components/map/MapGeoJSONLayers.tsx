@@ -489,7 +489,7 @@ export function MapGeoJSONLayers({
         const d = Math.round(calculateDistanceMeters(bufferCenter.lat, bufferCenter.lng, lat, lng));
         bufferDistInfo = `
           <div style="font-size:12px; color:#059669; font-weight:700; margin-top:4px; display:flex; align-items:center; gap:4px;">
-            <span>📍 Jarak di dalam buffer: ± ${d >= 1000 ? `${(d / 1000).toFixed(1)} km` : `${d} m`}</span>
+            <span>📍 Jarak di dalam buffer: ± ${d >= 1000 ? `${(d / 1000).toFixed(1)} KM` : `${d} m`}</span>
           </div>
         `;
       }
