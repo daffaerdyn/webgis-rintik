@@ -17,9 +17,14 @@ import {
 import MapPengunjungUI, {
   type UmkmItem,
   type VisitorSidebarState,
+  type PriceSortOrder,
+  type RatingSortOrder,
+  parsePriceRange,
 } from "./MapPengunjungUI";
 import {
   TOTAL_UMKM_VALID,
+  isRegionMatch,
+  normalizeRegionString,
 } from "@/lib/constants";
 
 const ALL_CATEGORIES = ["Kuliner", "Fashion", "Jasa", "Kerajinan", "Teknologi"];
@@ -37,6 +42,10 @@ export function MapPengunjung() {
   const [selectedKecamatan, setSelectedKecamatan] = useState<string>("Semua");
   const [selectedKelurahan, setSelectedKelurahan] = useState<string>("Semua");
   const [radiusMeters, setRadiusMeters] = useState<number>(20000);
+
+  // Filter urutan Angka (Harga) & Rating (Bisa salah satu atau keduanya)
+  const [priceSort, setPriceSort] = useState<PriceSortOrder>("none");
+  const [ratingSort, setRatingSort] = useState<RatingSortOrder>("none");
 
   // Koordinat lokasi pengguna / referensi asal
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number }>({
@@ -94,7 +103,7 @@ export function MapPengunjung() {
     async function loadUmkmData() {
       setIsLoading(true);
 
-      // Coba muat GeoJSON lokal terlebih dahulu (lengkap 2.993 features)
+      // Coba muat GeoJSON lokal terlebih dahulu (lengkap 1.225 features)
       try {
         const res = await fetch("/data/master_umkm_final_update.geojson");
         if (res.ok) {
@@ -110,8 +119,8 @@ export function MapPengunjung() {
                 kategori: String(p.kategori || "Kuliner"),
                 deskripsi_produk: p.deskripsi_produk || p.deskripsi || null,
                 alamat: p.alamat || null,
-                kecamatan: p.kecamatan || null,
-                kelurahan: p.kelurahan || null,
+                kecamatan: normalizeRegionString(p.kecamatan),
+                kelurahan: normalizeRegionString(p.kelurahan),
                 latitude: Number(coords[1]),
                 longitude: Number(coords[0]),
                 range_harga: p.range_harga || null,
@@ -132,7 +141,7 @@ export function MapPengunjung() {
 
       // Fallback ke endpoint backend /api/umkm
       try {
-        const res = await fetch("/api/umkm?page_size=2993");
+        const res = await fetch("/api/umkm?page_size=1225");
         if (res.ok) {
           const json = await res.json();
           if (json.data && Array.isArray(json.data)) {
@@ -143,8 +152,8 @@ export function MapPengunjung() {
               kategori: String(item.kategori),
               deskripsi_produk: item.deskripsi_produk,
               alamat: item.alamat,
-              kecamatan: item.kecamatan,
-              kelurahan: item.kelurahan,
+              kecamatan: normalizeRegionString(item.kecamatan),
+              kelurahan: normalizeRegionString(item.kelurahan),
               latitude: Number(item.latitude),
               longitude: Number(item.longitude),
               range_harga: item.range_harga,
@@ -198,16 +207,16 @@ export function MapPengunjung() {
         return;
       }
 
-      // 2. Filter Kecamatan
-      if (!isAllKec && item.kecamatan) {
-        if (!item.kecamatan.toLowerCase().includes(selectedKecamatan.toLowerCase())) {
+      // 2. Filter Kecamatan (Toleran spasi, typo & normalisasi)
+      if (!isAllKec) {
+        if (!isRegionMatch(item.kecamatan, selectedKecamatan)) {
           return;
         }
       }
 
-      // 3. Filter Kelurahan
-      if (!isAllKel && item.kelurahan) {
-        if (!item.kelurahan.toLowerCase().includes(selectedKelurahan.toLowerCase())) {
+      // 3. Filter Kelurahan (Toleran spasi, typo & normalisasi)
+      if (!isAllKel) {
+        if (!isRegionMatch(item.kelurahan, selectedKelurahan)) {
           return;
         }
       }
@@ -245,8 +254,47 @@ export function MapPengunjung() {
       });
     });
 
-    // Urutkan terdekat dari lokasi pengguna
-    filtered.sort((a, b) => (a.jarak_meter || 0) - (b.jarak_meter || 0));
+    // 7. Urutkan berdasarkan Angka (Harga) dan/atau Rating jika dipilih, fallback ke jarak terdekat
+    filtered.sort((a, b) => {
+      const priceA = parsePriceRange(a.range_harga);
+      const priceB = parsePriceRange(b.range_harga);
+      const ratingA = a.rating ?? 0;
+      const ratingB = b.rating ?? 0;
+
+      // Case 1: Keduanya aktif (Rating & Harga)
+      if (ratingSort !== "none" && priceSort !== "none") {
+        const ratingDiff = ratingSort === "desc" ? ratingB - ratingA : ratingA - ratingB;
+        if (Math.abs(ratingDiff) > 0.001) {
+          return ratingDiff;
+        }
+        const priceDiff = priceSort === "asc" ? priceA.min - priceB.min : priceB.max - priceA.max;
+        if (priceDiff !== 0) {
+          return priceDiff;
+        }
+        return (a.jarak_meter || 0) - (b.jarak_meter || 0);
+      }
+
+      // Case 2: Hanya Rating aktif
+      if (ratingSort !== "none") {
+        const ratingDiff = ratingSort === "desc" ? ratingB - ratingA : ratingA - ratingB;
+        if (Math.abs(ratingDiff) > 0.001) {
+          return ratingDiff;
+        }
+        return (a.jarak_meter || 0) - (b.jarak_meter || 0);
+      }
+
+      // Case 3: Hanya Harga (Angka) aktif
+      if (priceSort !== "none") {
+        const priceDiff = priceSort === "asc" ? priceA.min - priceB.min : priceB.max - priceA.max;
+        if (priceDiff !== 0) {
+          return priceDiff;
+        }
+        return (a.jarak_meter || 0) - (b.jarak_meter || 0);
+      }
+
+      // Case 4: Default -> Urutkan terdekat dari lokasi pengguna
+      return (a.jarak_meter || 0) - (b.jarak_meter || 0);
+    });
 
     return { filteredUmkm: filtered, categoryCounts: counts };
   }, [
@@ -257,6 +305,8 @@ export function MapPengunjung() {
     selectedKelurahan,
     radiusMeters,
     userCoords,
+    priceSort,
+    ratingSort,
   ]);
 
   // Status sidebar efektif: otomatis beralih ke EMPTY jika pencarian tidak menemukan hasil
@@ -371,7 +421,15 @@ export function MapPengunjung() {
     setSelectedKecamatan("Semua");
     setSelectedKelurahan("Semua");
     setRadiusMeters(20000);
+    setPriceSort("none");
+    setRatingSort("none");
     setSidebarState("LIST");
+  }, []);
+
+  // Handler Pilih Kecamatan (otomatis reset kelurahan ke "Semua")
+  const handleSelectKecamatan = useCallback((kec: string) => {
+    setSelectedKecamatan(kec);
+    setSelectedKelurahan("Semua");
   }, []);
 
   // Markers yang dirender pada canvas peta (seluruh titik UMKM tanpa dipotong slice)
@@ -458,21 +516,53 @@ export function MapPengunjung() {
         selectedCategories={selectedCategories}
         onToggleCategory={handleToggleCategory}
         selectedKecamatan={selectedKecamatan}
-        onSelectKecamatan={setSelectedKecamatan}
+        onSelectKecamatan={handleSelectKecamatan}
         selectedKelurahan={selectedKelurahan}
         onSelectKelurahan={setSelectedKelurahan}
         radiusMeters={radiusMeters}
         onRadiusChange={setRadiusMeters}
         categoryCounts={categoryCounts}
         onClearFilters={handleClearFilters}
+        priceSort={priceSort}
+        onPriceSortChange={setPriceSort}
+        ratingSort={ratingSort}
+        onRatingSortChange={setRatingSort}
         isLeftPanelOpen={isLeftPanelOpen}
-        onToggleLeftPanel={() => setIsLeftPanelOpen((prev) => !prev)}
+        onToggleLeftPanel={() => {
+          setIsLeftPanelOpen((prev) => {
+            const next = !prev;
+            if (next && typeof window !== "undefined" && window.innerWidth < 1024) {
+              setIsStatisticsOpen(false);
+            }
+            return next;
+          });
+        }}
         isFilterOpen={isFilterOpen}
-        onToggleFilter={() => setIsFilterOpen((prev) => !prev)}
+        onToggleFilter={() => {
+          setIsFilterOpen((prev) => {
+            const next = !prev;
+            if (next) setIsRadiusOpen(false);
+            return next;
+          });
+        }}
         isRadiusOpen={isRadiusOpen}
-        onToggleRadius={() => setIsRadiusOpen((prev) => !prev)}
+        onToggleRadius={() => {
+          setIsRadiusOpen((prev) => {
+            const next = !prev;
+            if (next) setIsFilterOpen(false);
+            return next;
+          });
+        }}
         isStatisticsOpen={isStatisticsOpen}
-        onToggleStatistics={() => setIsStatisticsOpen((prev) => !prev)}
+        onToggleStatistics={() => {
+          setIsStatisticsOpen((prev) => {
+            const next = !prev;
+            if (next && typeof window !== "undefined" && window.innerWidth < 1024) {
+              setIsLeftPanelOpen(false);
+            }
+            return next;
+          });
+        }}
         isLayersOpen={isLayersOpen}
         onToggleLayers={() => setIsLayersOpen((prev) => !prev)}
         sidebarState={effectiveSidebarState}

@@ -136,6 +136,11 @@ export function MapLeafletCore({
         preferCanvas={true}
         wheelPxPerZoomLevel={120}
         scrollWheelZoom={scrollWheelZoom}
+        maxBounds={[
+          [-6.72, 106.68],
+          [-6.46, 106.90],
+        ]}
+        maxBoundsViscosity={0.8}
         className="w-full h-full z-0"
         style={{ width: "100%", height: "100%" }}
       >

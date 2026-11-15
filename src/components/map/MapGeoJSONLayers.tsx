@@ -9,6 +9,7 @@ import {
   type CanvasPinItem,
   type CanvasPinOverlayHandle,
 } from "./MapCanvasPinRenderer";
+import { isRegionMatch } from "@/lib/constants";
 
 /**
  * Cache in-memory untuk menyimpan GeoJSON yang sudah dimuat agar tidak fetch berulang kali
@@ -215,15 +216,11 @@ export function MapGeoJSONLayers({
 
     const matchingFeatures = wilayahData.features.filter((f) => {
       const p = (f.properties || {}) as Record<string, unknown>;
-      const fKec = String(p.WADMKC || p.KECAMATAN || p.kecamatan || p.Kecamatan || p.NAMOBJ || "")
-        .trim()
-        .toLowerCase();
-      const fKel = String(p.WADMKD || p.KELURAHAN || p.kelurahan || p.Kelurahan || p.DESA || p.desa || "")
-        .trim()
-        .toLowerCase();
+      const fKec = String(p.nama_kecamatan || p.kecamatan || p.WADMKC || p.KECAMATAN || p.Kecamatan || p.NAMOBJ || "").trim();
+      const fKel = String(p.nama_kelurahan || p.kelurahan || p.WADMKD || p.KELURAHAN || p.Kelurahan || p.DESA || p.desa || "").trim();
 
-      const matchKec = isAllKec || fKec.includes(selectedKecamatan.toLowerCase());
-      const matchKel = isAllKel || fKel.includes(selectedKelurahan.toLowerCase());
+      const matchKec = isAllKec || isRegionMatch(fKec, selectedKecamatan);
+      const matchKel = isAllKel || isRegionMatch(fKel, selectedKelurahan);
 
       if (!isAllKel) return matchKel;
       if (!isAllKec) return matchKec;
