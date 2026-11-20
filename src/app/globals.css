@@ -42,6 +42,20 @@
   --border-subtle: #E5E5E5;       /* Garis pemisah tipis di dalam kartu putih */
   --focus-ring: #FF8F00;          /* Warna outline :focus-visible instan */
 
+  /* Semantic Warm Amber & Track Tokens (Locked Original Values) */
+  --amber-badge-bg: #F59E0B;
+  --amber-badge-ink: #78350F;
+  --amber-body-ink: #7C2D12;
+  --amber-card-from: #D97706;
+  --amber-cta-ink: #EA580C;
+  --track-cream: #EFEBD9;
+
+  /* Elevation Tokens */
+  --shadow-feature-card: 0 6px 18px -4px rgba(120, 53, 15, 0.16);
+  --shadow-cta-orange: 0 4px 14px -3px rgba(255, 143, 0, 0.2);
+  --shadow-cta-orange-hover: 0 10px 24px -3px rgba(255, 143, 0, 0.45);
+  --shadow-chart-card: 0 8px 32px rgba(0, 0, 0, 0.06);
+
   /* 5 Kategori Resmi UMKM RINTIK */
   --cat-kuliner: #E11D74;         /* Magenta/Pink-Red — Kuliner */
   --cat-fashion: #FF8F00;         /* Oranye — Fashion */
@@ -89,6 +103,18 @@
   --color-border-subtle: var(--border-subtle);
   --color-focus-ring: var(--focus-ring);
 
+  --color-amber-badge-bg: var(--amber-badge-bg);
+  --color-amber-badge-ink: var(--amber-badge-ink);
+  --color-amber-body-ink: var(--amber-body-ink);
+  --color-amber-card-from: var(--amber-card-from);
+  --color-amber-cta-ink: var(--amber-cta-ink);
+  --color-track-cream: var(--track-cream);
+
+  --shadow-feature-card: var(--shadow-feature-card);
+  --shadow-cta-orange: var(--shadow-cta-orange);
+  --shadow-cta-orange-hover: var(--shadow-cta-orange-hover);
+  --shadow-chart-card: var(--shadow-chart-card);
+
   --color-cat-kuliner: var(--cat-kuliner);
   --color-cat-fashion: var(--cat-fashion);
   --color-cat-jasa: var(--cat-jasa);
@@ -102,8 +128,7 @@
 html, body {
   overflow-x: clip;
   -webkit-overflow-scrolling: touch;
-  background-color: var(--color-bg, #F5F5DC);
-  background: #F5F5DC;
+  background-color: var(--color-bg);
   color: var(--ink-primary);
   font-family: var(--font-sans);
 }

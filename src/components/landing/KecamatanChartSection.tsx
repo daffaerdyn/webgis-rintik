@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { ArrowUpRight, RotateCcw } from "lucide-react";
 
@@ -9,7 +9,7 @@ interface DistrictStat {
   name: string;
   count: number;
   percentage: number;
-  color: string;
+  colorVar: string;
   rank: number;
   highlight: string;
 }
@@ -19,7 +19,7 @@ const DISTRICT_DATA: DistrictStat[] = [
     name: "Bogor Barat",
     count: 781,
     percentage: 26,
-    color: "#C62828", // Sekunder RINTIK (Red - Highest)
+    colorVar: "var(--brand-red)", // Sekunder RINTIK (Red - Highest)
     rank: 1,
     highlight: "Kawasan terpadat industri kreatif Kota Bogor",
   },
@@ -27,7 +27,7 @@ const DISTRICT_DATA: DistrictStat[] = [
     name: "Tanah Sareal",
     count: 531,
     percentage: 18,
-    color: "#E11D74", // Magenta/Pink
+    colorVar: "var(--cat-kuliner)", // Magenta/Pink
     rank: 2,
     highlight: "Pusat jasa, retail & usaha konter",
   },
@@ -35,7 +35,7 @@ const DISTRICT_DATA: DistrictStat[] = [
     name: "Bogor Tengah",
     count: 499,
     percentage: 17,
-    color: "#E11D74", // Magenta/Pink
+    colorVar: "var(--cat-kuliner)", // Magenta/Pink
     rank: 3,
     highlight: "Sentra kuliner favorit & oleh-oleh khas",
   },
@@ -43,7 +43,7 @@ const DISTRICT_DATA: DistrictStat[] = [
     name: "Bogor Utara",
     count: 493,
     percentage: 16,
-    color: "#E11D74", // Magenta/Pink
+    colorVar: "var(--cat-kuliner)", // Magenta/Pink
     rank: 4,
     highlight: "Akses koridor Pajajaran & kafe modern",
   },
@@ -51,7 +51,7 @@ const DISTRICT_DATA: DistrictStat[] = [
     name: "Bogor Selatan",
     count: 429,
     percentage: 14,
-    color: "#E11D74", // Magenta/Pink
+    colorVar: "var(--cat-kuliner)", // Magenta/Pink
     rank: 5,
     highlight: "Sentra kerajinan tangan & agrowisata",
   },
@@ -59,11 +59,14 @@ const DISTRICT_DATA: DistrictStat[] = [
     name: "Bogor Timur",
     count: 260,
     percentage: 9,
-    color: "#E11D74", // Magenta/Pink
+    colorVar: "var(--cat-kuliner)", // Magenta/Pink
     rank: 6,
     highlight: "Kawasan paling lengang, potensi pasar baru",
   },
 ];
+
+const TOTAL_UMKM = 2993;
+const MAX_DISTRICT_COUNT = 781;
 
 // Pure high-performance requestAnimationFrame count-up driver (60/120fps smooth)
 function animateCount(
@@ -103,56 +106,64 @@ function animateCount(
 export function KecamatanChartSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const cleanupsRef = useRef<(() => void)[]>([]);
+  const prefersReducedMotion = useReducedMotion();
 
   const [isInView, setIsInView] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
-  const [hoveredDistrict, setHoveredDistrict] = useState<string | null>(null);
+  const [activeDistrict, setActiveDistrict] = useState<string | null>(null);
 
-  // Animated counters
-  const [stat1, setStat1] = useState(0); // 0 -> 26%
-  const [stat2, setStat2] = useState(0); // 0 -> 2993
-  const [districtCounts, setDistrictCounts] = useState<number[]>([0, 0, 0, 0, 0, 0]);
+  // Animated counters (fallback immediately to real totals when reduced motion is active)
+  const [stat1, setStat1] = useState(26);
+  const [stat2, setStat2] = useState(TOTAL_UMKM);
+  const [districtCounts, setDistrictCounts] = useState<number[]>(
+    DISTRICT_DATA.map((d) => d.count)
+  );
 
-  const maxCount = 781;
-
-  const playAnimation = () => {
-    // Reset cleanups
+  const playAnimation = useCallback(() => {
     cleanupsRef.current.forEach((fn) => fn());
     cleanupsRef.current = [];
+    setIsInView(true);
 
-    // Reset initial values before rolling
+    if (prefersReducedMotion) {
+      setStat1(26);
+      setStat2(TOTAL_UMKM);
+      setDistrictCounts(DISTRICT_DATA.map((d) => d.count));
+      return;
+    }
+
     setStat1(0);
     setStat2(0);
     setDistrictCounts([0, 0, 0, 0, 0, 0]);
-    setIsInView(true);
 
     // Stat 1: 0 -> 26%
-    const c1 = animateCount(0, 26, 1600, 200, (val) => setStat1(val));
-    cleanupsRef.current.push(c1);
+    cleanupsRef.current.push(
+      animateCount(0, 26, 1500, 180, (val) => setStat1(val))
+    );
 
-    // Stat 2: 0 -> 2993
-    const c2 = animateCount(0, 2993, 1900, 300, (val) => setStat2(val));
-    cleanupsRef.current.push(c2);
+    // Stat 2: 0 -> 2.993
+    cleanupsRef.current.push(
+      animateCount(0, TOTAL_UMKM, 1800, 260, (val) => setStat2(val))
+    );
 
     // District Progress Bars Numbers
     DISTRICT_DATA.forEach((d, i) => {
-      const cd = animateCount(0, d.count, 1300, 250 + i * 80, (val) => {
-        setDistrictCounts((prev) => {
-          const next = [...prev];
-          next[i] = val;
-          return next;
-        });
-      });
-      cleanupsRef.current.push(cd);
+      cleanupsRef.current.push(
+        animateCount(0, d.count, 1250, 220 + i * 75, (val) => {
+          setDistrictCounts((prev) => {
+            const next = [...prev];
+            next[i] = val;
+            return next;
+          });
+        })
+      );
     });
-  };
+  }, [prefersReducedMotion]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     let triggered = false;
 
-    // Direct scroll tracker: triggers as soon as section top enters 85% of viewport
     const handleScrollOrIntersect = () => {
       if (!sectionRef.current) return;
       const rect = sectionRef.current.getBoundingClientRect();
@@ -164,24 +175,19 @@ export function KecamatanChartSection() {
           playAnimation();
         }
       } else if (rect.top > window.innerHeight || rect.bottom < 0) {
-        // Reset when scrolled out, so re-entering re-triggers animation
         triggered = false;
       }
     };
 
     window.addEventListener("scroll", handleScrollOrIntersect, { passive: true });
-    // Run immediately on mount (in case user reloaded right at the section)
     handleScrollOrIntersect();
 
-    // Additional IntersectionObserver fallback
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            if (!triggered) {
-              triggered = true;
-              playAnimation();
-            }
+          if (entry.isIntersecting && !triggered) {
+            triggered = true;
+            playAnimation();
           }
         });
       },
@@ -195,51 +201,46 @@ export function KecamatanChartSection() {
       observer.disconnect();
       cleanupsRef.current.forEach((fn) => fn());
     };
-  }, []);
+  }, [playAnimation]);
 
   const handleReplay = () => {
     setAnimationKey((prev) => prev + 1);
     playAnimation();
   };
 
+  const handleToggleDistrict = (name: string) => {
+    setActiveDistrict((prev) => (prev === name ? null : name));
+  };
+
   return (
     <section
       ref={sectionRef}
       id="statistik"
-      className="relative w-full bg-transparent py-16 sm:py-20 px-6 sm:px-10 md:px-24 overflow-hidden select-none"
+      className="relative w-full bg-transparent scroll-mt-20 py-14 sm:py-16 md:py-20 px-5 sm:px-8 md:px-12 lg:px-20 xl:px-24 overflow-x-clip select-none"
     >
-      <div className="relative z-10 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 xl:gap-14 items-center">
+      <div className="relative z-10 w-full max-w-[1360px] 2xl:max-w-[1440px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-10 xl:gap-14 items-center">
         {/* ============================================================== */}
         {/* Left Column: Heading & Key Animated Metrics                    */}
         {/* ============================================================== */}
-        <div className="lg:col-span-5 text-left">
-          {/* Badge */}
-          <motion.div
-            data-collide="true"
-            initial={{ opacity: 0, y: 16 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="inline-block px-3.5 py-1.5 rounded-full bg-primary text-black text-xs font-bold mb-4 shadow-xs"
-          >
-            Dataset RINTIK
-          </motion.div>
-
-          {/* Heading - Fade in with slide up */}
+        <div className="lg:col-span-5 text-left min-w-0 max-w-3xl lg:max-w-none mx-auto lg:mx-0 w-full">
+          {/* Heading */}
           <motion.h2
-            initial={{ opacity: 0, y: 22 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 22 }}
-            transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-            className="text-3xl sm:text-4xl font-extrabold text-secondary leading-tight mb-4"
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ duration: 0.6, delay: 0.06, ease: "easeOut" }}
+            className="text-[1.625rem] sm:text-3xl md:text-4xl font-extrabold text-secondary leading-[1.2] tracking-tight mb-3 sm:mb-4 break-words min-w-0"
           >
             2.993 UMKM Tersebar di 6 Kecamatan
           </motion.h2>
 
-          {/* Description - Fade in with slide up */}
+          {/* Description */}
           <motion.p
-            initial={{ opacity: 0, y: 22 }}
-            animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 22 }}
-            transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
-            className="text-stone-700 text-sm sm:text-base leading-relaxed mb-8 max-w-xl"
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.15 }}
+            transition={{ duration: 0.6, delay: 0.12, ease: "easeOut" }}
+            className="text-stone-700 text-base leading-[1.6] text-left mb-6 sm:mb-7 max-w-xl"
           >
             Setiap titik di peta RINTIK berasal dari dataset yang sama. Bogor
             Barat menjadi kawasan terpadat dengan 781 UMKM, sedangkan Bogor
@@ -247,195 +248,202 @@ export function KecamatanChartSection() {
             menjelajah atau meriset lokasi usaha.
           </motion.p>
 
-          {/* 3 Interactive Metric Cards with Counter Animations (0 -> Target) */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-3.5 mb-6 max-w-xl w-full">
+          {/* 3 Metric Cards: 2+1 balanced Bento on mobile (< 640px) -> 3 equal columns on sm+ */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3.5 mb-4 sm:mb-5 max-w-xl lg:max-w-none w-full">
             {/* Stat 1: 0 -> 26% */}
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={
-                isInView
-                  ? { opacity: 1, y: 0, scale: 1 }
-                  : { opacity: 0, y: 20, scale: 0.95 }
-              }
-              transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-              className="group bg-secondary text-white p-3 sm:p-4 rounded-xl text-center shadow-xs flex flex-col justify-between min-h-[110px] sm:min-h-[120px] select-none cursor-pointer"
+              data-collide="true"
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, amount: 0.15 }}
+              transition={{ duration: 0.5, delay: 0.16, ease: "easeOut" }}
+              className="bg-secondary text-white px-3.5 py-4 sm:p-4 rounded-xl text-center shadow-xs flex flex-col justify-between min-h-[104px] sm:min-h-[120px] min-w-0"
             >
-              <div className="flex-1 flex items-center justify-center text-2xl sm:text-3xl font-black text-white group-hover:text-[var(--brand-orange)] transition-colors duration-200 tracking-tight">
+              <div className="flex-1 flex items-center justify-center text-[1.75rem] sm:text-3xl font-black text-white tracking-tight leading-none">
                 <span className="tabular-nums">{stat1}%</span>
               </div>
-              <div className="text-[11px] sm:text-xs text-white/90 leading-tight mt-1">
+              <div className="text-xs text-white/92 leading-snug mt-2">
                 Konsentrasi Tertinggi (Bogor Barat)
               </div>
             </motion.div>
 
             {/* Stat 2: 0 -> 2.993 */}
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={
-                isInView
-                  ? { opacity: 1, y: 0, scale: 1 }
-                  : { opacity: 0, y: 20, scale: 0.95 }
-              }
-              transition={{ duration: 0.6, delay: 0.4, ease: "easeOut" }}
-              className="group bg-secondary text-white p-3 sm:p-4 rounded-xl text-center shadow-xs flex flex-col justify-between min-h-[110px] sm:min-h-[120px] select-none cursor-pointer"
+              data-collide="true"
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, amount: 0.15 }}
+              transition={{ duration: 0.5, delay: 0.22, ease: "easeOut" }}
+              className="bg-secondary text-white px-3.5 py-4 sm:p-4 rounded-xl text-center shadow-xs flex flex-col justify-between min-h-[104px] sm:min-h-[120px] min-w-0"
             >
-              <div className="flex-1 flex items-center justify-center text-2xl sm:text-3xl font-black text-white group-hover:text-[var(--brand-orange)] transition-colors duration-200 tracking-tight">
+              <div className="flex-1 flex items-center justify-center text-[1.75rem] sm:text-3xl font-black text-white tracking-tight leading-none">
                 <span className="tabular-nums">
                   {stat2.toLocaleString("id-ID")}
                 </span>
               </div>
-              <div className="text-[11px] sm:text-xs text-white/90 leading-tight mt-1">
+              <div className="text-xs text-white/92 leading-snug mt-2">
                 Total UMKM Terverifikasi
               </div>
             </motion.div>
 
-            {/* Stat 3: 23 Sep 2026 */}
+            {/* Stat 3: 23 Sep 2026 (Full-width horizontal strip on mobile so date never clips; 3rd column on sm+) */}
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={
-                isInView
-                  ? { opacity: 1, y: 0, scale: 1 }
-                  : { opacity: 0, y: 20, scale: 0.95 }
-              }
-              transition={{ duration: 0.6, delay: 0.5, ease: "easeOut" }}
-              className="group bg-secondary text-white p-3 sm:p-4 rounded-xl text-center shadow-xs flex flex-col justify-between min-h-[110px] sm:min-h-[120px] select-none cursor-pointer"
+              data-collide="true"
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: true, amount: 0.15 }}
+              transition={{ duration: 0.5, delay: 0.28, ease: "easeOut" }}
+              className="col-span-2 sm:col-span-1 bg-secondary text-white px-4 py-3.5 sm:p-4 rounded-xl shadow-xs flex flex-row-reverse sm:flex-col items-center justify-between gap-3 sm:gap-0 sm:text-center min-h-[56px] sm:min-h-[120px] min-w-0"
             >
-              <div className="flex-1 flex items-center justify-center text-base sm:text-lg md:text-xl xl:text-2xl font-black text-white group-hover:text-[var(--brand-orange)] transition-colors duration-200 tracking-tight whitespace-nowrap">
+              <div className="sm:flex-1 flex items-center justify-center text-base sm:text-lg md:text-xl xl:text-[22px] font-black text-white tracking-tight whitespace-nowrap tabular-nums">
                 <span>23 Sep 2026</span>
               </div>
-              <div className="text-[11px] sm:text-xs text-white/90 leading-tight mt-1">
+              <div className="text-xs text-white/92 leading-snug sm:mt-2 text-left sm:text-center">
                 Pembaruan Data Terakhir
               </div>
             </motion.div>
           </div>
 
           {/* Footnote */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={isInView ? { opacity: 1 } : { opacity: 0 }}
-            transition={{ duration: 0.6, delay: 0.6 }}
-            className="text-xs text-stone-500 italic"
-          >
+          <p className="text-xs sm:text-[13px] text-stone-600 leading-relaxed">
             Sumber: OpenStreetMap, verifikasi wilayah Kota Bogor, Google Maps.
-          </motion.p>
+          </p>
         </div>
 
         {/* ============================================================== */}
-        {/* Right Column: Interactive Progress Bars (Exact SS2 Layout)     */}
+        {/* Right Column: Interactive Progress Bars Card                   */}
+        {/* Mobile: 2-line full-width bar layout for true data legibility  */}
+        {/* Tablet & Desktop (sm+): Single-line aligned horizontal bars    */}
         {/* ============================================================== */}
         <motion.div
-          initial={{ opacity: 0, y: 25, scale: 0.98 }}
-          animate={
-            isInView
-              ? { opacity: 1, y: 0, scale: 1 }
-              : { opacity: 0, y: 25, scale: 0.98 }
-          }
-          transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
-          className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-8 md:p-10 shadow-lg border border-stone-200/80"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 20, scale: 0.99 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: true, amount: 0.12 }}
+          transition={{ duration: 0.6, delay: 0.12, ease: "easeOut" }}
+          className="lg:col-span-7 min-w-0 w-full max-w-3xl lg:max-w-none mx-auto lg:mx-0 bg-white/55 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-7 md:p-9 shadow-chart-card border border-white/70"
         >
-          {/* Header row inside card with replay button */}
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xl sm:text-2xl font-bold text-stone-900">
+          {/* Header row inside card with replay button & non-wrapping badge */}
+          <div className="flex items-start sm:items-center justify-between gap-3 mb-1.5">
+            <h3 className="text-lg sm:text-2xl font-bold text-stone-900 leading-snug min-w-0">
               Jumlah UMKM per Kecamatan
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleReplay}
+                aria-label="Putar ulang animasi grafik"
                 title="Putar ulang animasi grafik"
-                className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-stone-500 hover:text-secondary px-2.5 py-1 rounded-lg hover:bg-stone-100 active:scale-95 transition-all cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-0 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-stone-700 hover:text-secondary hover:bg-white/70 active:scale-95 transition-[color,background-color,transform] cursor-pointer focus-visible:outline-2 focus-visible:outline-focus-ring"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <RotateCcw className="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0" />
                 <span className="hidden sm:inline">Ulang</span>
               </button>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-700">
+              <span className="inline-flex items-center text-xs font-semibold px-3 py-1 rounded-full bg-white/75 border border-stone-200/80 text-stone-700 whitespace-nowrap shrink-0">
                 6 Kecamatan
               </span>
             </div>
           </div>
-          <p className="text-xs sm:text-sm text-stone-500 mb-7">
-            Total 2.993 UMKM, diurutkan dari terbanyak
+
+          <p className="text-xs sm:text-sm text-stone-600 mb-5 sm:mb-7">
+            Total 2.993 UMKM, diurutkan dari terbanyak. Ketuk kecamatan untuk
+            detail.
           </p>
 
-          {/* District Progress Bars List (Exact SS2 Single-line Layout) */}
-          <div className="space-y-4 sm:space-y-5">
+          {/* District Progress Bars List */}
+          <div className="space-y-2.5 sm:space-y-3.5">
             {DISTRICT_DATA.map((district, index) => {
-              const widthPct = (district.count / maxCount) * 100;
-              const isHovered = hoveredDistrict === district.name;
+              const widthPct = (district.count / MAX_DISTRICT_COUNT) * 100;
+              const isSelected = activeDistrict === district.name;
 
               return (
-                <div
-                  key={district.name}
-                  onMouseEnter={() => setHoveredDistrict(district.name)}
-                  onMouseLeave={() => setHoveredDistrict(null)}
-                  className="group relative flex items-center gap-2.5 sm:gap-4 p-1.5 -mx-1.5 rounded-xl transition-colors duration-150 hover:bg-stone-50/80 cursor-pointer"
-                >
-                  {/* District Name (Left Column) */}
-                  <span className="w-24 sm:w-28 md:w-32 shrink-0 text-xs sm:text-sm font-bold text-stone-900 group-hover:text-secondary transition-colors">
-                    {district.name}
-                  </span>
+                <div key={district.name} className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleDistrict(district.name)}
+                    aria-expanded={isSelected}
+                    className={`group w-full text-left flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-4 px-2.5 py-2 -mx-2.5 rounded-xl min-h-[44px] transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-focus-ring ${
+                      isSelected ? "bg-white/80" : "hover:bg-white/55"
+                    }`}
+                  >
+                    {/* Top row on mobile (Name left, Count & % right); split into columns via sm:contents on sm+ */}
+                    <div className="flex items-baseline justify-between gap-2 w-full sm:contents">
+                      {/* District Name */}
+                      <span className="sm:w-28 md:w-32 sm:shrink-0 sm:order-1 text-sm font-bold text-stone-900 group-hover:text-secondary transition-colors">
+                        {district.name}
+                      </span>
 
-                  {/* Progress Bar Track (Warm Beige/Cream Thick Pill) */}
-                  <div className="flex-1 h-5 sm:h-6 bg-[#EFEBD9] rounded-full overflow-hidden relative shadow-inner/10">
-                    <motion.div
-                      key={`${district.name}-${animationKey}`}
-                      className="h-full rounded-full transition-transform duration-150 group-hover:brightness-105"
-                      style={{
-                        backgroundColor: district.color,
-                      }}
-                      initial={{ width: "0%" }}
-                      animate={
-                        isInView
-                          ? { width: `${widthPct}%` }
-                          : { width: "0%" }
-                      }
-                      transition={{
-                        duration: 1.2,
-                        delay: 0.25 + index * 0.1,
-                        ease: [0.16, 1, 0.3, 1],
-                      }}
-                    />
-                  </div>
+                      {/* Count & Percentage */}
+                      <div className="flex items-baseline gap-2.5 sm:gap-3 shrink-0 sm:order-3">
+                        <span className="font-extrabold text-sm text-stone-900 tabular-nums sm:w-12 sm:text-right">
+                          {districtCounts[index]
+                            ? districtCounts[index].toLocaleString("id-ID")
+                            : "0"}
+                        </span>
+                        <span className="text-xs sm:text-sm font-semibold text-stone-600 tabular-nums w-9 sm:w-10 text-right">
+                          {district.percentage}%
+                        </span>
+                      </div>
+                    </div>
 
-                  {/* District Count (Number) */}
-                  <span className="w-10 sm:w-12 text-right font-bold text-xs sm:text-sm text-stone-900 tabular-nums shrink-0">
-                    {districtCounts[index]
-                      ? districtCounts[index].toLocaleString("id-ID")
-                      : "0"}
-                  </span>
+                    {/* Full-width Progress Bar Track (GPU-composited scaleX, zero width layout thrashing) */}
+                    <div className="w-full sm:flex-1 sm:order-2 h-3 sm:h-5 bg-track-cream rounded-full overflow-hidden relative">
+                      <motion.div
+                        key={`${district.name}-${animationKey}`}
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${widthPct}%`,
+                          backgroundColor: district.colorVar,
+                          transformOrigin: "left center",
+                        }}
+                        initial={prefersReducedMotion ? { scaleX: 1 } : { scaleX: 0 }}
+                        animate={
+                          isInView || prefersReducedMotion
+                            ? { scaleX: 1 }
+                            : { scaleX: 0 }
+                        }
+                        transition={{
+                          duration: prefersReducedMotion ? 0 : 1.1,
+                          delay: prefersReducedMotion ? 0 : 0.2 + index * 0.08,
+                          ease: [0.16, 1, 0.3, 1],
+                        }}
+                      />
+                    </div>
+                  </button>
 
-                  {/* Percentage (Right Column) */}
-                  <span className="w-8 sm:w-10 text-right text-stone-500 font-medium text-xs sm:text-sm tabular-nums shrink-0">
-                    {district.percentage}%
-                  </span>
-
-                  {/* Interactive Micro-Tooltip on Row Hover */}
-                  {isHovered && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="absolute -top-7 left-28 sm:left-36 z-20 pointer-events-none bg-stone-900 text-white text-[10px] font-semibold px-2.5 py-1 rounded-md shadow-md whitespace-nowrap"
-                    >
-                      Peringkat #{district.rank} • {district.highlight}
-                    </motion.div>
-                  )}
+                  {/* Touch & Keyboard Accessible Inline Detail Insight (No off-screen tooltip clipping) */}
+                  <AnimatePresence initial={false}>
+                    {isSelected && (
+                      <motion.div
+                        initial={prefersReducedMotion ? false : { opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={prefersReducedMotion ? undefined : { opacity: 0, y: -4 }}
+                        transition={{ duration: 0.18, ease: "easeOut" }}
+                        className="mt-1 mb-1 px-3 py-2 rounded-lg bg-white/85 border border-border-cream/80 text-xs text-stone-700 flex items-start gap-2 leading-snug"
+                      >
+                        <span className="font-extrabold text-secondary shrink-0 tabular-nums">
+                          #{district.rank}
+                        </span>
+                        <span>{district.highlight}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             })}
           </div>
 
           {/* Footer inside card */}
-          <div className="mt-8 pt-5 border-t border-stone-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-stone-500">
-            <span>
+          <div className="mt-6 sm:mt-8 pt-4 sm:pt-5 border-t border-stone-900/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-4 text-xs sm:text-[13px] text-stone-600">
+            <span className="leading-relaxed">
               Angka dihitung dari dataset yang sama dengan Peta Pengunjung dan
               Analisis Calon UMKM.
             </span>
             <Link
               href="/map/pengunjung"
-              className="group inline-flex items-center gap-1 font-bold text-secondary hover:text-brand-red-dark shrink-0 transition-colors"
+              className="group inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-0 py-1 font-bold text-secondary hover:text-brand-red-dark shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-focus-ring rounded"
             >
               <span>Buka Peta</span>
-              <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              <ArrowUpRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none" />
             </Link>
           </div>
         </motion.div>

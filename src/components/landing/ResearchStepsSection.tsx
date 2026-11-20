@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Compass, CheckCircle2, ArrowRight } from "lucide-react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -16,7 +16,6 @@ if (typeof window !== "undefined") {
 interface StepItem {
   number: string;
   title: string;
-  badge: string;
   description: string;
   imageSrc: string;
   imageAlt: string;
@@ -27,7 +26,6 @@ const RESEARCH_STEPS: StepItem[] = [
   {
     number: "01",
     title: "Tentukan Titik Usaha",
-    badge: "Langkah Pertama",
     description:
       "Pilih jenis usahamu dan tandai koordinat calon ruko langsung di peta Kota Bogor.",
     imageSrc: "/img/point-location.jpg",
@@ -41,7 +39,6 @@ const RESEARCH_STEPS: StepItem[] = [
   {
     number: "02",
     title: "Atur Radius Analisis & Kompetitor",
-    badge: "Langkah Kedua",
     description:
       "Tentukan jangkauan area buffer yang ingin diteliti (misal: 250m, 500m, atau 1 km) untuk melihat sebaran kompetitor.",
     imageSrc: "/img/map-buffer.jpg",
@@ -55,7 +52,6 @@ const RESEARCH_STEPS: StepItem[] = [
   {
     number: "03",
     title: "Dapatkan Insight Spasial & Keputusan Terbaik",
-    badge: "Langkah Ketiga",
     description:
       "Sistem otomatis menghitung jumlah kompetitor sejenis serta jarak ke jalan utama, pemukiman, dan fasilitas publik terdekat.",
     imageSrc: "/img/map-route.jpg",
@@ -69,6 +65,7 @@ const RESEARCH_STEPS: StepItem[] = [
 ];
 
 export function ResearchStepsSection() {
+  const prefersReducedMotion = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const contentWrapperRef = useRef<HTMLDivElement>(null);
@@ -306,7 +303,7 @@ export function ResearchStepsSection() {
       <section
         ref={sectionRef}
         id="langkah-riset"
-        className="w-full bg-bg-cream pt-20 pb-16 px-6 sm:px-10 md:px-24 border-t border-border-cream selection:bg-secondary selection:text-white"
+        className="w-full bg-bg-cream scroll-mt-20 pt-14 pb-12 sm:pt-16 sm:pb-14 md:pt-20 md:pb-16 px-5 sm:px-8 md:px-12 lg:px-24 border-t border-border-cream selection:bg-secondary selection:text-white"
       >
         <div
           ref={contentWrapperRef}
@@ -314,14 +311,11 @@ export function ResearchStepsSection() {
           className="max-w-6xl mx-auto"
         >
           {/* Section Header */}
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <div className="inline-block px-3.5 py-1.5 rounded-full bg-primary text-black text-xs font-bold mb-3 shadow-xs">
-              Alur Riset Terarah
-            </div>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-secondary leading-tight mb-4">
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12 md:mb-14">
+            <h2 className="text-[1.625rem] sm:text-4xl md:text-[2.75rem] font-extrabold text-secondary leading-[1.2] tracking-tight mb-3 break-words min-w-0">
               Riset Lokasi dalam 3 Langkah Cepat
             </h2>
-            <p className="text-stone-700 text-sm sm:text-base leading-relaxed">
+            <p className="text-stone-700 text-base leading-[1.6] max-w-xl mx-auto">
               Lakukan telaah kelayakan awal calon lokasi usaha secara sistematis
               sebelum membuat keputusan sewa ruko melalui panduan berbasis data
               spasial.
@@ -329,55 +323,55 @@ export function ResearchStepsSection() {
           </div>
 
           {/* 3 Alternating Step Cards */}
-          <div className="space-y-10">
+          <div className="space-y-5 sm:space-y-6 md:space-y-8">
             {RESEARCH_STEPS.map((step, index) => {
               const isEven = index % 2 === 1;
 
               return (
                 <motion.article
                   key={step.number}
-                  initial={{ opacity: 0, y: 30 }}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.2 }}
-                  transition={{ duration: 0.6, delay: 0.1 }}
+                  viewport={{ once: true, amount: 0.15 }}
+                  transition={{ duration: 0.55, delay: 0.06 }}
                   className={`flex flex-col ${
                     isEven ? "md:flex-row-reverse" : "md:flex-row"
-                  } items-center gap-8 bg-white p-6 sm:p-8 rounded-3xl border border-stone-200/80 shadow-md hover:-translate-y-0.5 transition-transform duration-200`}
+                  } items-center gap-4 sm:gap-6 md:gap-8 bg-surface-white p-4 sm:p-6 md:p-7 lg:p-8 rounded-2xl sm:rounded-3xl border border-stone-200/80 shadow-sm sm:shadow-md md:hover:-translate-y-0.5 transition-transform duration-200 motion-reduce:transition-none`}
                 >
-                  {/* Image Container */}
-                  <div className="relative w-full md:w-5/12 h-64 sm:h-72 rounded-2xl overflow-hidden shrink-0 border border-stone-100">
+                  {/* Image Container: compact 16:10 on mobile so entire card fits comfortably on 1 screen */}
+                  <div className="relative w-full md:w-5/12 aspect-[16/10] sm:aspect-[16/9] md:aspect-auto md:h-64 lg:h-72 rounded-xl sm:rounded-2xl overflow-hidden shrink-0 border border-stone-100">
                     <Image
                       src={step.imageSrc}
                       alt={step.imageAlt}
                       fill
-                      sizes="(max-width: 768px) 100vw, 42vw"
+                      sizes="(max-width: 768px) 92vw, 42vw"
                       className="object-cover"
                     />
-                    <div className="absolute top-3 left-3 bg-secondary text-primary text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
+                    <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 bg-secondary text-white text-xs font-extrabold tabular-nums px-2.5 py-1 rounded-lg shadow-sm">
                       {step.number}
                     </div>
                   </div>
 
                   {/* Content Container */}
-                  <div className="w-full md:w-7/12 text-left">
-                    <span className="text-xs font-bold text-secondary">
-                      {step.badge}
-                    </span>
-                    <h3 className="text-2xl sm:text-3xl font-bold text-stone-900 mt-1 mb-3">
+                  <div className="w-full md:w-7/12 text-left min-w-0">
+                    <h3 className="text-lg sm:text-2xl lg:text-[1.75rem] font-extrabold text-stone-900 leading-[1.25] tracking-tight mb-2 sm:mb-3 break-words">
                       {step.title}
                     </h3>
-                    <p className="text-stone-600 text-sm sm:text-base leading-relaxed mb-6">
+                    <p className="text-stone-600 text-base leading-[1.6] mb-4 sm:mb-5">
                       {step.description}
                     </p>
 
-                    {/* Bullet Highlights */}
-                    <ul className="space-y-2 mb-6">
+                    {/* Bullet Highlights: icons aligned cleanly with the first line of wrapped text */}
+                    <ul className="space-y-2 sm:space-y-2.5">
                       {step.points.map((point) => (
                         <li
                           key={point}
-                          className="flex items-center gap-2.5 text-xs sm:text-sm text-stone-700"
+                          className="flex items-start gap-2.5 text-sm sm:text-[15px] text-stone-700 leading-[1.45]"
                         >
-                          <CheckCircle2 className="w-4 h-4 text-cat-kerajinan shrink-0" />
+                          <CheckCircle2
+                            className="w-4 h-4 text-cat-kerajinan shrink-0 mt-0.5"
+                            aria-hidden="true"
+                          />
                           <span>{point}</span>
                         </li>
                       ))}
@@ -389,14 +383,14 @@ export function ResearchStepsSection() {
           </div>
 
           {/* Bottom CTA to start research */}
-          <div className="text-center mt-14">
+          <div className="text-center mt-8 sm:mt-10 md:mt-14">
             <Link
               href="/map/calon-usaha"
-              className="inline-flex items-center gap-2.5 px-8 py-4 rounded-xl bg-secondary text-white font-bold text-sm sm:text-base shadow-lg hover:bg-brand-red-dark active:scale-95 transition-transform duration-150 focus-visible:outline-2 focus-visible:outline-primary"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 sm:gap-2.5 min-h-[48px] px-4 sm:px-8 py-3.5 sm:py-4 rounded-xl bg-secondary hover:bg-brand-red-dark text-white font-bold text-[13.5px] sm:text-base shadow-lg active:scale-[0.98] transition-[transform,background-color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring motion-reduce:transition-none"
             >
-              <Compass className="w-5 h-5" />
+              <Compass className="w-4.5 h-4.5 sm:w-5 sm:h-5 shrink-0" aria-hidden="true" />
               <span>Mulai Riset Lokasi Usaha Sekarang</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
             </Link>
           </div>
         </div>
@@ -481,9 +475,9 @@ export function ResearchStepsSection() {
             </div>
           </div>
 
-          {/* Middle: Black Bold Hashtag Statement */}
+          {/* Middle: White Bold Hashtag Statement */}
           <div className="my-auto py-3 sm:py-5">
-            <h2 className="text-black font-black text-xl sm:text-2xl md:text-3xl lg:text-4xl tracking-tight text-center select-none">
+            <h2 className="text-white font-black text-xl sm:text-2xl md:text-3xl lg:text-4xl tracking-tight text-center select-none">
               #Terpetakan.
             </h2>
           </div>

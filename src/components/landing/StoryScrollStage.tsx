@@ -19,6 +19,7 @@ export function StoryScrollStage() {
   const photoLeftRef = useRef<HTMLDivElement>(null);
   const photoRightRef = useRef<HTMLDivElement>(null);
   const storyTextRef = useRef<HTMLDivElement>(null);
+  const storyHeadingRef = useRef<HTMLHeadingElement>(null);
   const storyTextParagraphRef = useRef<HTMLParagraphElement>(null);
   const redBgRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -124,6 +125,12 @@ export function StoryScrollStage() {
         opacity: 1,
         color: "#C62828",
       });
+
+      if (storyHeadingRef.current) {
+        gsap.set(storyHeadingRef.current, {
+          color: "#C62828",
+        });
+      }
 
       if (storyTextParagraphRef.current) {
         gsap.set(storyTextParagraphRef.current, {
@@ -270,6 +277,18 @@ export function StoryScrollStage() {
           1.4
         );
 
+      if (storyHeadingRef.current) {
+        masterTl.to(
+          storyHeadingRef.current,
+          {
+            color: "#FFFFFF",
+            duration: 1.0,
+            ease: "power1.out",
+          },
+          1.4
+        );
+      }
+
       if (storyTextParagraphRef.current) {
         masterTl.to(
           storyTextParagraphRef.current,
@@ -286,51 +305,61 @@ export function StoryScrollStage() {
       masterTl.to({}, { duration: 0.6 }, 2.4);
 
       // ====================================================================
-      // SETELAH SEMUA STEP STORYSCROLLSTAGE SELESAI
-      // Membawa peta kuning secara presisi menuju slot tengah InformationFeatureSection (#fungsi-map-slot)
+      // SETELAH SEMUA STEP STORYSCROLLSTAGE SELESAI (DESKTOP >= 1024px ONLY)
+      // Di desktop, peta kuning meluncur presisi ke slot tengah InformationFeatureSection (#fungsi-map-slot).
+      // Di mobile & tablet (< 1024px), #fungsi-map-slot disembunyikan demi UX & hierarki optimal,
+      // sehingga peta kuning tetap rapi menyatu di kotak merah StoryScrollStage dan ikut terscroll keluar.
       // ====================================================================
-      const toFungsiTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: () =>
-            masterTl.scrollTrigger ? masterTl.scrollTrigger.end : "bottom top",
-          end: () =>
-            masterTl.scrollTrigger
-              ? masterTl.scrollTrigger.end + getTargetDeltaY()
-              : "+=700",
-          scrub: window.innerWidth < 768 ? 0.3 : 0.6,
-          fastScrollEnd: true,
-          invalidateOnRefresh: true,
-        },
-      });
+      const mm = gsap.matchMedia();
+      mm.add("(min-width: 1024px)", () => {
+        const toFungsiTl = gsap.timeline({
+          scrollTrigger: {
+            trigger: containerRef.current,
+            start: () =>
+              masterTl.scrollTrigger ? masterTl.scrollTrigger.end : "bottom top",
+            end: () =>
+              masterTl.scrollTrigger
+                ? masterTl.scrollTrigger.end + getTargetDeltaY()
+                : "+=700",
+            scrub: 0.6,
+            fastScrollEnd: true,
+            invalidateOnRefresh: true,
+          },
+        });
 
-      toFungsiTl
-        .fromTo(
-          mapCarryRef.current,
-          {
-            x: 0,
-            y: 0,
-          },
-          {
-            x: () => -getShiftMapX(),
-            y: () => getTargetDeltaY() - getInitialCenterMapY(),
-            ease: "power1.inOut",
-            immediateRender: false,
-          },
-          0
-        )
-        .fromTo(
-          mapInnerScaleRef.current,
-          {
-            scale: 1,
-          },
-          {
-            scale: getTargetScale,
-            ease: "power1.inOut",
-            immediateRender: false,
-          },
-          0
-        );
+        toFungsiTl
+          .fromTo(
+            mapCarryRef.current,
+            {
+              x: 0,
+              y: 0,
+            },
+            {
+              x: () => -getShiftMapX(),
+              y: () => getTargetDeltaY() - getInitialCenterMapY(),
+              ease: "power1.inOut",
+              immediateRender: false,
+            },
+            0
+          )
+          .fromTo(
+            mapInnerScaleRef.current,
+            {
+              scale: 1,
+            },
+            {
+              scale: getTargetScale,
+              ease: "power1.inOut",
+              immediateRender: false,
+            },
+            0
+          );
+
+        return () => {
+          gsap.set(mapCarryRef.current, { x: 0, y: 0 });
+          gsap.set(mapInnerScaleRef.current, { scale: 1 });
+        };
+      });
     },
     { scope: containerRef }
   );
@@ -400,9 +429,15 @@ export function StoryScrollStage() {
             ref={storyTextRef}
             className="absolute left-1/2 top-1/2 z-20 w-full max-w-[240px] sm:max-w-[300px] md:max-w-[340px] lg:max-w-[480px] xl:max-w-[640px] px-1 sm:px-3 text-left select-none pointer-events-none transform-gpu will-change-transform"
           >
+            <h2
+              ref={storyHeadingRef}
+              className="font-extrabold text-[19px] sm:text-[22px] md:text-[26px] lg:text-[32px] xl:text-[36px] text-inherit leading-[1.18] sm:leading-[1.2] tracking-tight mb-2 sm:mb-3 md:mb-3.5 drop-shadow-xs"
+            >
+              Tentang RINTIK
+            </h2>
             <p
               ref={storyTextParagraphRef}
-              className="font-bold text-[12.5px] sm:text-[14px] md:text-[15px] lg:text-[18px] xl:text-[20px] text-inherit leading-[1.65] sm:leading-[1.58] md:leading-[1.6] lg:leading-[1.65] tracking-tight drop-shadow-sm"
+              className="font-bold text-[12px] sm:text-[13.5px] md:text-[14.5px] lg:text-[17px] xl:text-[19px] text-inherit leading-[1.62] sm:leading-[1.58] md:leading-[1.6] lg:leading-[1.65] tracking-tight drop-shadow-sm opacity-95"
             >
               RINTIK (Ruang Informasi Titik Industri Kreatif) adalah platform Web
               GIS yang memetakan persebaran UMKM di Kota Bogor, bertujuan untuk

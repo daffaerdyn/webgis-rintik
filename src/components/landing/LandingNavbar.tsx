@@ -172,7 +172,7 @@ export function LandingNavbar({
                 ease: [0.65, 0, 1, 0.4], // Setengah waktu lambat dulu, lalu setengah waktu berikutnya melesat cepat
               }}
               style={{ willChange: "transform" }}
-              className="fixed top-0 left-0 w-full h-[52dvh] min-h-[380px] max-h-[520px] bg-primary z-50 shadow-2xl flex flex-col justify-between px-5 pt-5 pb-8 sm:px-8 sm:pt-7 sm:pb-10 md:px-12 md:pt-8 md:pb-12 lg:px-24 lg:pt-9 lg:pb-14 border-b-2 border-secondary/20 pt-[max(1.25rem,env(safe-area-inset-top))]"
+              className="fixed top-0 left-0 w-full min-h-[56dvh] max-h-[85dvh] bg-primary z-50 shadow-2xl flex flex-col justify-between px-5 pt-5 pb-12 sm:px-8 sm:pt-7 sm:pb-14 md:px-12 md:pt-8 md:pb-16 lg:px-24 lg:pt-9 lg:pb-20 border-b-2 border-secondary/20 pt-[max(1.25rem,env(safe-area-inset-top))]"
             >
               {/* Top Header Spacer Row inside Drawer (matches fixed Header height so red line aligns) */}
               <div

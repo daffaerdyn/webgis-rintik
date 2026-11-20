@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Icon, addIcon } from "@iconify/react";
 
 // Pre-register official Iconify icons to ensure 100% offline and instantaneous rendering
@@ -24,18 +24,11 @@ addIcon("lucide:arrow-right", {
   body: `<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7l-7 7"/>`,
 });
 
-addIcon("lucide:arrow-up-right", {
-  width: 24,
-  height: 24,
-  body: `<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M7 7h10v10M7 17L17 7"/>`,
-});
-
 interface FeatureCard {
   title: string;
   subtitle: string[];
   image: string;
   alt: string;
-  href: string;
 }
 
 const JELAJAHI_CARDS: FeatureCard[] = [
@@ -44,21 +37,18 @@ const JELAJAHI_CARDS: FeatureCard[] = [
     subtitle: ["Cari UMKM", "Terdekat"],
     image: "/img/umkm/umkm-warkop.jpg",
     alt: "Cari UMKM Terdekat di Kota Bogor",
-    href: "/map/pengunjung",
   },
   {
     title: "Filter Terpadu",
     subtitle: ["Filter", "Terpadu"],
     image: "/img/filter.png",
     alt: "Filter Terpadu Kategori dan Wilayah UMKM",
-    href: "/map/pengunjung",
   },
   {
     title: "Panduan Rute",
     subtitle: ["Panduan", "Rute"],
     image: "/img/mark-location.jpg",
     alt: "Panduan Rute Navigasi ke Lokasi UMKM",
-    href: "/map/pengunjung",
   },
 ];
 
@@ -68,117 +58,99 @@ const RISET_CARDS: FeatureCard[] = [
     subtitle: ["Potensi Pasar", "Sekitar"],
     image: "/img/Pemukiman.jpg",
     alt: "Analisis Potensi Pasar dan Permukiman Sekitar",
-    href: "/map/calon-usaha",
   },
   {
     title: "Aksesibilitas & Mobilitas",
     subtitle: ["Aksesibilitas &", "Mobilitas"],
     image: "/img/stasiun.jpg",
     alt: "Analisis Aksesibilitas Jalan dan Transportasi Publik",
-    href: "/map/calon-usaha",
   },
   {
     title: "Analisis Kompetitor",
     subtitle: ["Analisis", "Kompetitor"],
     image: "/img/competitor.jpg",
     alt: "Analisis Sebaran Kompetitor Usaha Sejenis",
-    href: "/map/calon-usaha",
   },
 ];
 
 export function InformationFeatureSection() {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
     <section
       id="fungsi"
-      className="relative w-full bg-transparent py-20 sm:py-24 lg:py-28 px-6 sm:px-10 md:px-16 lg:px-20 xl:px-24 overflow-hidden select-none transform-gpu"
+      className="relative w-full bg-transparent scroll-mt-20 py-14 sm:py-16 md:py-20 lg:py-28 px-5 sm:px-8 md:px-12 lg:px-20 xl:px-24 overflow-x-clip select-none transform-gpu"
     >
-      {/* Unified Centered Container with Equal Left/Right Columns & Auto-Sized Center Map */}
-      <div className="relative z-10 w-full max-w-[1360px] 2xl:max-w-[1440px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-12 lg:gap-8 xl:gap-12">
+      {/* Unified Centered Container: 1 col mobile -> 2 equal cols tablet -> 3 cols desktop with center map */}
+      <div className="relative z-10 w-full max-w-[1360px] 2xl:max-w-[1440px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch lg:items-center gap-10 md:gap-8 xl:gap-12">
         {/* ================================================================ */}
-        {/* LEFT COLUMN: JELAJAHI UMKM LOKAL (Left-aligned)                  */}
+        {/* LEFT COLUMN: JELAJAHI UMKM LOKAL (Left-aligned on all screens)   */}
         {/* ================================================================ */}
         <motion.div
-          initial={{ opacity: 0, x: -28 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: false, amount: 0.25 }}
-          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full flex flex-col items-start text-left max-w-[500px] lg:max-w-none mx-auto lg:mx-0"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full min-w-0 flex flex-col items-start text-left max-w-[540px] md:max-w-none mx-auto md:mx-0"
         >
-          {/* Map Outline Icon */}
-          <div className="mb-4 sm:mb-5 text-[#1E293B] inline-flex items-center justify-center rounded-2xl transition-transform duration-300 hover:scale-105">
-            <Icon
-              icon="lucide:map"
-              className="w-12 h-12 sm:w-14 sm:h-14 text-[#1E293B]"
-              aria-hidden="true"
-            />
-          </div>
-
           {/* Heading */}
-          <h2 className="text-2xl sm:text-3xl lg:text-[28px] xl:text-[32px] font-black text-secondary tracking-tight leading-[1.15] mb-3">
+          <h2 className="text-[1.5rem] sm:text-[1.75rem] lg:text-[28px] xl:text-[32px] font-black text-secondary tracking-tight leading-[1.18] mb-2.5 sm:mb-3 break-words min-w-0">
             JELAJAHI UMKM LOKAL
           </h2>
 
           {/* Pill Badge */}
           <span
             data-collide="true"
-            className="inline-flex items-center px-3.5 py-1 rounded-md bg-[#F59E0B] text-[#78350F] text-xs sm:text-[13px] font-extrabold tracking-wide shadow-xs mb-4"
+            className="inline-flex items-center px-3 py-1 rounded-md bg-amber-badge-bg text-amber-badge-ink text-xs sm:text-[13px] font-extrabold shadow-xs mb-3.5 sm:mb-4"
           >
             Eksplorasi Publik
           </span>
 
           {/* Subtitle / Description */}
-          <p className="text-sm sm:text-[15.5px] xl:text-base font-medium text-[#7C2D12] leading-[1.65] max-w-[460px] mb-7">
+          <p className="text-base leading-[1.6] font-medium text-amber-body-ink max-w-[460px] mb-5 sm:mb-6 lg:mb-7">
             Temukan produk dan jasa industri kreatif terbaik di Kota Bogor
             dengan panduan peta interaktif.
           </p>
 
-          {/* 3 Horizontal Feature Cards (Proportional, Interactive, High-Contrast) */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 w-full max-w-[480px] mb-8">
+          {/* 3 Horizontal Feature Cards (Proportional, Static Preview) */}
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5 lg:gap-4 w-full max-w-[480px] mb-6 sm:mb-7 lg:mb-8">
             {JELAJAHI_CARDS.map((card, idx) => (
               <motion.div
                 key={card.title}
-                initial={{ opacity: 0, y: 18 }}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: false, amount: 0.2 }}
+                viewport={{ once: true, amount: 0.15 }}
                 transition={{
-                  duration: 0.5,
-                  delay: 0.12 + idx * 0.08,
+                  duration: 0.45,
+                  delay: prefersReducedMotion ? 0 : 0.08 + idx * 0.06,
                   ease: [0.16, 1, 0.3, 1],
                 }}
+                className="min-w-0"
               >
-                <Link
-                  href={card.href}
-                  aria-label={`${card.title} — Buka Peta Pengunjung`}
-                  className="group relative block aspect-[1/1.05] w-full rounded-2xl overflow-hidden bg-stone-900 shadow-[0_8px_20px_-6px_rgba(120,53,15,0.18)] hover:shadow-[0_16px_28px_-6px_rgba(245,158,11,0.35)] ring-1 ring-amber-900/15 hover:ring-2 hover:ring-[#F59E0B] hover:-translate-y-1.5 transition-[transform,box-shadow] duration-300 focus-visible:outline-2 focus-visible:outline-focus-ring"
-                >
+                <div className="relative aspect-[1/1.08] sm:aspect-[1/1.05] w-full rounded-xl sm:rounded-2xl overflow-hidden bg-stone-900 shadow-feature-card ring-1 ring-amber-900/15">
                   <Image
                     src={card.image}
                     alt={card.alt}
                     fill
-                    sizes="(max-width: 768px) 32vw, 160px"
-                    className="object-cover transition-transform duration-500 ease-out group-hover:scale-108"
+                    sizes="(max-width: 768px) 30vw, (max-width: 1024px) 16vw, 160px"
+                    className="object-cover"
                   />
 
                   {/* Subtle top vignette so light screenshots stay crisp against cream background */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/10 pointer-events-none" />
-
-                  {/* Hover Action Badge (Top-Right) */}
-                  <div className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-black/55 backdrop-blur-xs text-white flex items-center justify-center opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-[opacity,transform] duration-200 pointer-events-none">
-                    <Icon icon="lucide:arrow-up-right" className="w-3.5 h-3.5" />
-                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/15 pointer-events-none" />
 
                   {/* Golden Amber Multi-Stop Gradient Overlay */}
-                  <div className="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-[#D97706] via-[#F59E0B]/90 to-transparent flex flex-col justify-end items-center pb-2.5 sm:pb-3 px-2 text-center pointer-events-none">
+                  <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-amber-card-from via-amber-badge-bg/92 to-transparent flex flex-col justify-end items-center pb-2 sm:pb-2.5 px-1.5 sm:px-2 text-center pointer-events-none">
                     {card.subtitle.map((line, lineIdx) => (
                       <span
                         key={lineIdx}
-                        className="block text-[11.5px] sm:text-xs xl:text-[13px] font-extrabold text-white leading-[1.2] tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
+                        className="block text-[11px] sm:text-xs xl:text-[13px] font-extrabold text-white leading-[1.18] tracking-tight drop-shadow-xs"
                       >
                         {line}
                       </span>
                     ))}
                   </div>
-                </Link>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -186,123 +158,115 @@ export function InformationFeatureSection() {
           {/* CTA Button -> /map/pengunjung */}
           <Link
             href="/map/pengunjung"
-            className="group inline-flex items-center justify-center gap-2.5 px-7 py-3 sm:py-3.5 rounded-xl bg-[#F59E0B] hover:bg-[#E08A00] text-[#652B0D] font-extrabold text-xs sm:text-sm xl:text-[15px] shadow-[0_6px_16px_-3px_rgba(245,158,11,0.4)] hover:shadow-[0_10px_22px_-3px_rgba(245,158,11,0.55)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-[transform,background-color,box-shadow] duration-200 focus-visible:outline-2 focus-visible:outline-[#F59E0B]"
+            className="group mt-auto lg:mt-0 w-full sm:w-auto inline-flex items-center justify-center gap-2.5 min-h-[48px] px-6 sm:px-7 py-3 sm:py-3.5 rounded-xl bg-surface-white hover:bg-brand-orange text-amber-cta-ink hover:text-white font-extrabold text-sm xl:text-[15px] border-2 border-brand-orange shadow-cta-orange hover:shadow-cta-orange-hover hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring motion-reduce:transition-none motion-reduce:hover:transform-none"
           >
             <span>Jelajahi UMKM</span>
             <Icon
               icon="lucide:arrow-right"
-              className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200 group-hover:translate-x-1"
+              className="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none"
             />
           </Link>
         </motion.div>
 
+        {/* Subtle structural hairline divider between pillars on mobile only (zero nested cards) */}
+        <div
+          aria-hidden="true"
+          className="md:hidden w-full max-w-[540px] mx-auto border-t border-border-cream"
+        />
+
         {/* ================================================================ */}
         {/* CENTER COLUMN: TARGET SLOT FOR TRAVELING BOGOR YELLOW MAP        */}
-        {/* Peta kuning dari StoryScrollStage bergerak (Smart Animate)       */}
-        {/* turun dan mendarat presisi di slot tengah ini saat discroll.     */}
+        {/* Ditampilkan pada Desktop (>= 1024px) agar simetris 3-kolom.      */}
+        {/* Pada Mobile & Tablet (< 1024px), disembunyikan demi UX &         */}
+        {/* keterbacaan optimal tanpa ruang kosong/redundansi peta.          */}
         {/* ================================================================ */}
-        <div className="w-full lg:w-auto flex flex-col items-center justify-center order-first lg:order-none py-2 lg:py-0">
+        <div className="hidden lg:flex lg:w-auto flex-col items-center justify-center">
           <div
             id="fungsi-map-slot"
-            className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-[300px] lg:h-[300px] xl:w-[360px] xl:h-[360px] 2xl:w-[380px] 2xl:h-[380px] flex items-center justify-center pointer-events-none"
+            className="relative lg:w-[300px] lg:h-[300px] xl:w-[360px] xl:h-[360px] 2xl:w-[380px] 2xl:h-[380px] flex items-center justify-center pointer-events-none"
           >
             {/* Soft warm ambient glow behind the Bogor map when it lands */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.85 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.85 }}
               whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: false, amount: 0.3 }}
+              viewport={{ once: true, amount: 0.3 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
-              className="absolute inset-6 rounded-full bg-[#FBC02D]/20 blur-2xl pointer-events-none"
+              className="absolute inset-6 rounded-full bg-primary/20 blur-2xl pointer-events-none"
               aria-hidden="true"
             />
           </div>
         </div>
 
         {/* ================================================================ */}
-        {/* RIGHT COLUMN: RISET LOKASI USAHA (Right-aligned)                 */}
+        {/* RIGHT COLUMN: RISET LOKASI USAHA                                 */}
+        {/* Left-aligned on Mobile & Tablet for clean shared reading edge;   */}
+        {/* Right-aligned on Desktop (>= 1024px) mirroring the center map.   */}
         {/* ================================================================ */}
         <motion.div
-          initial={{ opacity: 0, x: 28 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: false, amount: 0.25 }}
-          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full flex flex-col items-end text-right max-w-[500px] lg:max-w-none mx-auto lg:mx-0"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full min-w-0 flex flex-col items-start text-left lg:items-end lg:text-right max-w-[540px] md:max-w-none mx-auto md:mx-0"
         >
-          {/* Target Arrow Icon */}
-          <div className="mb-4 sm:mb-5 text-[#1E293B] inline-flex items-center justify-center rounded-2xl transition-transform duration-300 hover:scale-105">
-            <Icon
-              icon="tabler:target-arrow"
-              className="w-12 h-12 sm:w-14 sm:h-14 text-[#1E293B]"
-              aria-hidden="true"
-            />
-          </div>
-
           {/* Heading */}
-          <h2 className="text-2xl sm:text-3xl lg:text-[28px] xl:text-[32px] font-black text-secondary tracking-tight leading-[1.15] mb-3 text-right">
+          <h2 className="text-[1.5rem] sm:text-[1.75rem] lg:text-[28px] xl:text-[32px] font-black text-secondary tracking-tight leading-[1.18] mb-2.5 sm:mb-3 text-left lg:text-right break-words min-w-0">
             RISET LOKASI USAHA
           </h2>
 
           {/* Pill Badge */}
           <span
             data-collide="true"
-            className="inline-flex items-center px-3.5 py-1 rounded-md bg-[#F59E0B] text-[#78350F] text-xs sm:text-[13px] font-extrabold tracking-wide shadow-xs mb-4 ml-auto"
+            className="inline-flex items-center px-3 py-1 rounded-md bg-amber-badge-bg text-amber-badge-ink text-xs sm:text-[13px] font-extrabold shadow-xs mb-3.5 sm:mb-4 lg:ml-auto"
           >
             Fitur Unggulan
           </span>
 
           {/* Subtitle / Description */}
-          <p className="text-sm sm:text-[15.5px] xl:text-base font-medium text-[#7C2D12] leading-[1.65] max-w-[460px] mb-7 text-right">
+          <p className="text-base leading-[1.6] font-medium text-amber-body-ink max-w-[460px] mb-5 sm:mb-6 lg:mb-7 text-left lg:text-right">
             Lakukan telaah kelayakan awal calon lokasi bisnis secara terukur
             sebelum memutuskan menyewa tempat.
           </p>
 
-          {/* 3 Horizontal Feature Cards (Proportional, Interactive, High-Contrast) */}
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 w-full max-w-[480px] mb-8 ml-auto">
+          {/* 3 Horizontal Feature Cards (Proportional, Static Preview) */}
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5 lg:gap-4 w-full max-w-[480px] mb-6 sm:mb-7 lg:mb-8 lg:ml-auto">
             {RISET_CARDS.map((card, idx) => (
               <motion.div
                 key={card.title}
-                initial={{ opacity: 0, y: 18 }}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: false, amount: 0.2 }}
+                viewport={{ once: true, amount: 0.15 }}
                 transition={{
-                  duration: 0.5,
-                  delay: 0.12 + idx * 0.08,
+                  duration: 0.45,
+                  delay: prefersReducedMotion ? 0 : 0.08 + idx * 0.06,
                   ease: [0.16, 1, 0.3, 1],
                 }}
+                className="min-w-0"
               >
-                <Link
-                  href={card.href}
-                  aria-label={`${card.title} — Buka Peta Analisis Calon Usaha`}
-                  className="group relative block aspect-[1/1.05] w-full rounded-2xl overflow-hidden bg-stone-900 shadow-[0_8px_20px_-6px_rgba(120,53,15,0.18)] hover:shadow-[0_16px_28px_-6px_rgba(245,158,11,0.35)] ring-1 ring-amber-900/15 hover:ring-2 hover:ring-[#F59E0B] hover:-translate-y-1.5 transition-[transform,box-shadow] duration-300 text-center focus-visible:outline-2 focus-visible:outline-focus-ring"
-                >
+                <div className="relative aspect-[1/1.08] sm:aspect-[1/1.05] w-full rounded-xl sm:rounded-2xl overflow-hidden bg-stone-900 shadow-feature-card ring-1 ring-amber-900/15 text-center">
                   <Image
                     src={card.image}
                     alt={card.alt}
                     fill
-                    sizes="(max-width: 768px) 32vw, 160px"
-                    className="object-cover transition-transform duration-500 ease-out group-hover:scale-108"
+                    sizes="(max-width: 768px) 30vw, (max-width: 1024px) 16vw, 160px"
+                    className="object-cover"
                   />
 
                   {/* Subtle top vignette for cohesive visual depth */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/10 pointer-events-none" />
-
-                  {/* Hover Action Badge (Top-Right) */}
-                  <div className="absolute top-2.5 right-2.5 w-6 h-6 rounded-full bg-black/55 backdrop-blur-xs text-white flex items-center justify-center opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-[opacity,transform] duration-200 pointer-events-none">
-                    <Icon icon="lucide:arrow-up-right" className="w-3.5 h-3.5" />
-                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/15 pointer-events-none" />
 
                   {/* Golden Amber Multi-Stop Gradient Overlay */}
-                  <div className="absolute inset-x-0 bottom-0 h-[58%] bg-gradient-to-t from-[#D97706] via-[#F59E0B]/90 to-transparent flex flex-col justify-end items-center pb-2.5 sm:pb-3 px-2 text-center pointer-events-none">
+                  <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-amber-card-from via-amber-badge-bg/92 to-transparent flex flex-col justify-end items-center pb-2 sm:pb-2.5 px-1.5 sm:px-2 text-center pointer-events-none">
                     {card.subtitle.map((line, lineIdx) => (
                       <span
                         key={lineIdx}
-                        className="block text-[11.5px] sm:text-xs xl:text-[13px] font-extrabold text-white leading-[1.2] tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]"
+                        className="block text-[11px] sm:text-xs xl:text-[13px] font-extrabold text-white leading-[1.18] tracking-tight drop-shadow-xs"
                       >
                         {line}
                       </span>
                     ))}
                   </div>
-                </Link>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -310,12 +274,12 @@ export function InformationFeatureSection() {
           {/* CTA Button -> /map/calon-usaha */}
           <Link
             href="/map/calon-usaha"
-            className="group inline-flex items-center justify-center gap-2.5 px-7 py-3 sm:py-3.5 rounded-xl bg-[#F59E0B] hover:bg-[#E08A00] text-[#652B0D] font-extrabold text-xs sm:text-sm xl:text-[15px] shadow-[0_6px_16px_-3px_rgba(245,158,11,0.4)] hover:shadow-[0_10px_22px_-3px_rgba(245,158,11,0.55)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95 transition-[transform,background-color,box-shadow] duration-200 focus-visible:outline-2 focus-visible:outline-[#F59E0B] ml-auto"
+            className="group mt-auto lg:mt-0 w-full sm:w-auto inline-flex items-center justify-center gap-2.5 min-h-[48px] px-6 sm:px-7 py-3 sm:py-3.5 rounded-xl bg-surface-white hover:bg-brand-orange text-amber-cta-ink hover:text-white font-extrabold text-sm xl:text-[15px] border-2 border-brand-orange shadow-cta-orange hover:shadow-cta-orange-hover hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-[transform,background-color,border-color,color,box-shadow] duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring motion-reduce:transition-none motion-reduce:hover:transform-none lg:ml-auto"
           >
             <span>Riset Lokasi Usaha</span>
             <Icon
               icon="lucide:arrow-right"
-              className="w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform duration-200 group-hover:translate-x-1"
+              className="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none"
             />
           </Link>
         </motion.div>
