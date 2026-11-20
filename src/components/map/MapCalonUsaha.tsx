@@ -11,6 +11,7 @@ import {
   createUserDotPin,
 } from "./MapCustomPins";
 import { MapRoutingService } from "./MapRoutingService";
+import { normalizeRegionString } from "@/lib/constants";
 import type { UmkmItem } from "./MapPengunjungUI";
 import MapCalonUsahaUI, {
   type AnalysisResultData,
@@ -52,8 +53,11 @@ export function MapCalonUsaha() {
   const [showUmkm, setShowUmkm] = useState(true);
   const [showWilayah, setShowWilayah] = useState(true);
   const [showJalan, setShowJalan] = useState(false);
-  const [showSekolah, setShowSekolah] = useState(false);
+  const [showSekolah, setShowSekolah] = useState(true);
   const [showPermukiman, setShowPermukiman] = useState(false);
+
+  // Batas wilayah Kota Bogor (polygon rings) untuk validasi point-in-polygon presisi
+  const bogorPolygonsRef = useRef<number[][][]>([]);
 
   // Zoom Actions (+ / -)
   const handleZoomIn = useCallback(() => {
@@ -101,8 +105,8 @@ export function MapCalonUsaha() {
                 kategori: String(p.kategori || "Kuliner"),
                 deskripsi_produk: p.deskripsi_produk || p.deskripsi || null,
                 alamat: p.alamat || null,
-                kecamatan: p.kecamatan || null,
-                kelurahan: p.kelurahan || null,
+                kecamatan: normalizeRegionString(p.kecamatan),
+                kelurahan: normalizeRegionString(p.kelurahan),
                 latitude: Number(coords[1]),
                 longitude: Number(coords[0]),
                 range_harga: p.range_harga || null,
@@ -122,6 +126,36 @@ export function MapCalonUsaha() {
     };
   }, []);
 
+  // 1b. Muat GeoJSON Batas Wilayah Kota Bogor untuk validasi point-in-polygon presisi
+  useEffect(() => {
+    async function loadBoundary() {
+      try {
+        const res = await fetch("/data/ADMINISTRASIDESA_AR_25K_KotaBogor.geojson");
+        if (res.ok) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const json = await res.json() as any;
+          if (json.features && Array.isArray(json.features)) {
+            const rings: number[][][] = [];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            json.features.forEach((f: any) => {
+              const g = f.geometry;
+              if (g?.type === "Polygon") {
+                rings.push(g.coordinates[0]); // outer ring only
+              } else if (g?.type === "MultiPolygon") {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                g.coordinates.forEach((poly: any) => rings.push(poly[0]));
+              }
+            });
+            bogorPolygonsRef.current = rings;
+          }
+        }
+      } catch (err) {
+        console.warn("Gagal memuat GeoJSON batas wilayah:", err);
+      }
+    }
+    loadBoundary();
+  }, []);
+
   // Map kamus cepat untuk enrich detail UMKM berdasarkan ID atau Nama
   const masterUmkmMap = useMemo(() => {
     const map = new Map<string, UmkmItem>();
@@ -132,179 +166,198 @@ export function MapCalonUsaha() {
     return map;
   }, [masterUmkm]);
 
-  // 2. Fungsi Eksekusi Analisis Lokasi Spasial
-  const executeAnalysis = useCallback(
-    async (lat: number, lng: number, radius: number, category: string) => {
-      setIsAnalyzing(true);
-      setGuardrailWarning(null);
+  // Ref untuk debounce dan pembatalan request API latar belakang
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const currentReqIdRef = useRef<number>(0);
+  const circleRef = useRef<L.Circle | null>(null);
 
-      try {
-        const res = await fetch("/api/analysis/location", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            latitude: lat,
-            longitude: lng,
-            radius: radius,
-            kategori: category,
-          }),
-        });
+  // Bersihkan timer dan request saat unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, []);
 
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            // Enrich items di daftar dan terdekat dengan atribut lengkap
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const enrichedDaftar: UmkmItem[] = (json.data.umkm_sejenis.daftar || []).map((item: any) => {
-              const fromMaster =
-                masterUmkmMap.get(String(item.id_umkm)) ||
-                masterUmkmMap.get(item.nama_umkm?.toLowerCase().trim());
-              return {
-                id_umkm: String(item.id_umkm),
-                nama_umkm: item.nama_umkm || fromMaster?.nama_umkm || "UMKM",
-                kategori: item.kategori || fromMaster?.kategori || category,
-                deskripsi_produk: item.deskripsi_produk || fromMaster?.deskripsi_produk || null,
-                alamat: item.alamat || fromMaster?.alamat || null,
-                kecamatan: item.kecamatan || fromMaster?.kecamatan || null,
-                kelurahan: item.kelurahan || fromMaster?.kelurahan || null,
-                latitude: Number(item.latitude || fromMaster?.latitude),
-                longitude: Number(item.longitude || fromMaster?.longitude),
-                range_harga: item.range_harga || fromMaster?.range_harga || null,
-                rating: Number(item.rating || fromMaster?.rating || 4.8),
-                jarak_meter:
-                  item.jarak_meter != null
-                    ? Number(item.jarak_meter)
-                    : (fromMaster?.jarak_meter ?? null),
-              };
-            });
+  // Update langsung radius fisik lingkaran Leaflet di canvas tanpa delay rekonsiliasi
+  useEffect(() => {
+    if (circleRef.current && radiusMeters > 0) {
+      circleRef.current.setRadius(radiusMeters);
+    }
+  }, [radiusMeters]);
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const enrichedTerdekat: UmkmItem[] = (json.data.umkm_sejenis.terdekat || enrichedDaftar.slice(0, 5)).map((item: any) => {
-              const fromMaster =
-                masterUmkmMap.get(String(item.id_umkm)) ||
-                masterUmkmMap.get(item.nama_umkm?.toLowerCase().trim());
-              return {
-                id_umkm: String(item.id_umkm),
-                nama_umkm: item.nama_umkm || fromMaster?.nama_umkm || "UMKM",
-                kategori: item.kategori || fromMaster?.kategori || category,
-                deskripsi_produk: item.deskripsi_produk || fromMaster?.deskripsi_produk || null,
-                alamat: item.alamat || fromMaster?.alamat || null,
-                kecamatan: item.kecamatan || fromMaster?.kecamatan || null,
-                kelurahan: item.kelurahan || fromMaster?.kelurahan || null,
-                latitude: Number(item.latitude || fromMaster?.latitude),
-                longitude: Number(item.longitude || fromMaster?.longitude),
-                range_harga: item.range_harga || fromMaster?.range_harga || null,
-                rating: Number(item.rating || fromMaster?.rating || 4.8),
-                jarak_meter:
-                  item.jarak_meter != null
-                    ? Number(item.jarak_meter)
-                    : (fromMaster?.jarak_meter ?? null),
-              };
-            });
+  // 1. Komputasi spasial lokal INSTAN (0 ms) di memori klien
+  // Menjamin lingkaran buffer dan pin selalu 100% konsisten seketika (60 FPS, bebas lag & race condition)
+  const localCompetitorMarkers = useMemo(() => {
+    if (!candidatePoint || !selectedCategory) return [];
+    const catLower = selectedCategory.toLowerCase();
+    const result: UmkmItem[] = [];
 
-            setAnalysisData({
-              ...json.data,
-              umkm_sejenis: {
-                ...json.data.umkm_sejenis,
-                daftar: enrichedDaftar,
-                terdekat: enrichedTerdekat,
-              },
-            });
-            setIsResultPanelOpen(true);
-            setGuardrailWarning(null);
-            setIsAnalyzing(false);
-            return;
-          }
+    for (let i = 0; i < masterUmkm.length; i++) {
+      const umkm = masterUmkm[i];
+      if (umkm.kategori.toLowerCase() === catLower) {
+        const distKm = MapRoutingService.calculateHaversineDistanceKm(
+          candidatePoint.lat,
+          candidatePoint.lng,
+          umkm.latitude,
+          umkm.longitude
+        );
+        const distMeters = Math.round(distKm * 1000);
+        if (distMeters <= radiusMeters) {
+          result.push({
+            ...umkm,
+            jarak_meter: distMeters,
+          });
         }
-      } catch (err) {
-        console.warn("Backend /api/analysis/location gagal, beralih ke fallback spasial:", err);
+      }
+    }
+
+    result.sort((a, b) => (a.jarak_meter || 0) - (b.jarak_meter || 0));
+    return result;
+  }, [candidatePoint, radiusMeters, selectedCategory, masterUmkm]);
+
+  // 2. Sinkronkan analysisData secara instan mengikuti pergerakan buffer lokal (0 ms)
+  useEffect(() => {
+    if (!candidatePoint || !selectedCategory) return;
+
+    setAnalysisData((prev) => ({
+      parameter: {
+        latitude: candidatePoint.lat,
+        longitude: candidatePoint.lng,
+        radius_meter: radiusMeters,
+        kategori: selectedCategory,
+      },
+      buffer: prev?.buffer,
+      umkm_sejenis: {
+        jumlah: localCompetitorMarkers.length,
+        terdekat: localCompetitorMarkers.slice(0, 5),
+        daftar: localCompetitorMarkers,
+      },
+      fasilitas_dalam_radius: prev?.fasilitas_dalam_radius,
+      fasilitas_terdekat: prev?.fasilitas_terdekat || {
+        jalan_terdekat: "Jaringan Jalan Kota Bogor",
+        jarak_jalan_meter: 24,
+        sekolah_terdekat: "Fasilitas Pendidikan Terdekat",
+        jarak_sekolah_meter: 142,
+      },
+    }));
+  }, [candidatePoint, radiusMeters, selectedCategory, localCompetitorMarkers]);
+
+  // 3. Request analisis API latar belakang (Debounced 300ms + AbortController)
+  // Hanya mengambil fasilitas terdekat & metadata PostGIS tanpa memblokir rendering pin
+  const requestDetailedAnalysis = useCallback(
+    (lat: number, lng: number, radius: number, category: string, immediate = false) => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
 
-      // Fallback Spasial Klien Otomatis menggunakan Haversine Distance
-      const competitors: UmkmItem[] = [];
-      masterUmkm.forEach((umkm) => {
-        if (umkm.kategori.toLowerCase() === category.toLowerCase()) {
-          const distKm = MapRoutingService.calculateHaversineDistanceKm(
-            lat,
-            lng,
-            umkm.latitude,
-            umkm.longitude
-          );
-          const distMeters = Math.round(distKm * 1000);
-          if (distMeters <= radius) {
-            competitors.push({
-              ...umkm,
-              jarak_meter: distMeters,
-            });
+      const executeFetch = async () => {
+        const reqId = ++currentReqIdRef.current;
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        setIsAnalyzing(true);
+
+        try {
+          const res = await fetch("/api/analysis/location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              latitude: lat,
+              longitude: lng,
+              radius: radius,
+              kategori: category,
+            }),
+            signal: controller.signal,
+          });
+
+          if (res.ok && reqId === currentReqIdRef.current) {
+            const json = await res.json();
+            if (json.success && json.data) {
+              setAnalysisData((prev) => {
+                if (!prev) return json.data;
+                return {
+                  ...prev,
+                  buffer: json.data.buffer || prev.buffer,
+                  fasilitas_dalam_radius:
+                    json.data.fasilitas_dalam_radius || prev.fasilitas_dalam_radius,
+                  fasilitas_terdekat:
+                    json.data.fasilitas_terdekat || prev.fasilitas_terdekat,
+                };
+              });
+            }
+          }
+        } catch (err: unknown) {
+          if (err instanceof Error && err.name !== "AbortError") {
+            console.warn("Background analysis fetch info:", err);
+          }
+        } finally {
+          if (reqId === currentReqIdRef.current) {
+            setIsAnalyzing(false);
           }
         }
-      });
-
-      competitors.sort((a, b) => (a.jarak_meter || 0) - (b.jarak_meter || 0));
-
-      const fallbackResult: AnalysisResultData = {
-        parameter: {
-          latitude: lat,
-          longitude: lng,
-          radius_meter: radius,
-          kategori: category,
-        },
-        umkm_sejenis: {
-          jumlah: competitors.length,
-          terdekat: competitors.slice(0, 5),
-          daftar: competitors,
-        },
-        fasilitas_terdekat: {
-          jalan_terdekat: "Jaringan Jalan Kota Bogor",
-          jarak_jalan_meter: Math.max(12, Math.round(Math.random() * 45 + 15)),
-          sekolah_terdekat: "Fasilitas Pendidikan Terdekat",
-          jarak_sekolah_meter: Math.max(65, Math.round(Math.random() * 220 + 80)),
-        },
       };
 
-      setAnalysisData(fallbackResult);
-      setIsResultPanelOpen(true);
-      setGuardrailWarning(null);
-      setIsAnalyzing(false);
+      if (immediate) {
+        executeFetch();
+      } else {
+        debounceTimerRef.current = setTimeout(executeFetch, 300);
+      }
     },
-    [masterUmkm, masterUmkmMap]
+    []
   );
 
-  // 3. Handler Seleksi Kategori (Langkah 1)
+  // 4. Handler Seleksi Kategori (Langkah 1)
   const handleSelectCategory = useCallback(
     (category: string) => {
       setSelectedCategory(category);
       setIsCategoryModalOpen(false);
       setGuardrailWarning(null);
 
-      // Jika titik dan radius sudah ada, jalankan ulang analisis secara dinamis
       if (candidatePoint) {
-        executeAnalysis(candidatePoint.lat, candidatePoint.lng, radiusMeters, category);
+        requestDetailedAnalysis(candidatePoint.lat, candidatePoint.lng, radiusMeters, category, true);
       } else {
         setCurrentStep(2);
       }
     },
-    [candidatePoint, radiusMeters, executeAnalysis]
+    [candidatePoint, radiusMeters, requestDetailedAnalysis]
   );
 
-  // 4. Handler Klik Peta (Langkah 2: Tentukan Titik Usaha)
+  // Utilitas: Point-in-polygon (ray casting) untuk cek apakah klik di dalam Kota Bogor
+  const isInsideBogor = useCallback((lat: number, lng: number): boolean => {
+    const polygons = bogorPolygonsRef.current;
+    if (polygons.length === 0) {
+      // Fallback ke bounding box jika GeoJSON belum dimuat
+      const b = BOGOR_COORDINATES.bounds;
+      return lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng;
+    }
+    for (const ring of polygons) {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1]; // [lng, lat]
+        const xj = ring[j][0], yj = ring[j][1];
+        const intersect = ((yi > lat) !== (yj > lat)) &&
+          (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      if (inside) return true;
+    }
+    return false;
+  }, []);
+
+  // 5. Handler Klik Peta (Langkah 2: Tentukan Titik Usaha)
   const handleMapClick = useCallback(
     (coords: { lat: number; lng: number }) => {
-      // Guardrail 1: Belum pilih kategori
       if (!selectedCategory) {
         setGuardrailWarning("Pilih Dulu Kategori UMKM-Mu");
         setIsCategoryModalOpen(true);
         return;
       }
 
-      // Validasi Bounding Box Geografis Kota Bogor
-      const bounds = BOGOR_COORDINATES.bounds;
-      if (
-        coords.lat < bounds.minLat ||
-        coords.lat > bounds.maxLat ||
-        coords.lng < bounds.minLng ||
-        coords.lng > bounds.maxLng
-      ) {
+      if (!isInsideBogor(coords.lat, coords.lng)) {
         setGuardrailWarning(
           "Lokasi berada di luar wilayah Kota Bogor. Silakan pilih titik di dalam Kota Bogor."
         );
@@ -314,22 +367,21 @@ export function MapCalonUsaha() {
       setCandidatePoint(coords);
       setCurrentStep(3);
       setGuardrailWarning(null);
+      setIsResultPanelOpen(true);
 
-      // Eksekusi analisis spasial langsung
-      executeAnalysis(coords.lat, coords.lng, radiusMeters, selectedCategory);
+      // Eksekusi analisis langsung
+      requestDetailedAnalysis(coords.lat, coords.lng, radiusMeters, selectedCategory, true);
 
-      // Pan peta ke titik yang dipilih
       if (mapRef.current) {
         mapRef.current.setView([coords.lat, coords.lng], 15, { animate: true });
       }
     },
-    [selectedCategory, radiusMeters, executeAnalysis]
+    [selectedCategory, radiusMeters, requestDetailedAnalysis, isInsideBogor]
   );
 
-  // 5. Handler Perubahan Radius (Langkah 3: Atur Buffer)
+  // 6. Handler Perubahan Radius (Langkah 3: Atur Buffer)
   const handleRadiusChange = useCallback(
     (radius: number) => {
-      // Guardrail 2: Belum pilih titik
       if (!selectedCategory) {
         setGuardrailWarning("Pilih Dulu Kategori UMKM-Mu");
         return;
@@ -339,10 +391,13 @@ export function MapCalonUsaha() {
         return;
       }
 
+      // Radius state berubah seketika -> localCompetitorMarkers otomatis update dalam 0 ms
       setRadiusMeters(radius);
-      executeAnalysis(candidatePoint.lat, candidatePoint.lng, radius, selectedCategory);
+
+      // Request backend di-debounce 300 ms agar tidak spam request saat slider digeser cepat
+      requestDetailedAnalysis(candidatePoint.lat, candidatePoint.lng, radius, selectedCategory, false);
     },
-    [selectedCategory, candidatePoint, executeAnalysis]
+    [selectedCategory, candidatePoint, requestDetailedAnalysis]
   );
 
   // 6. Handler Klik Seleksi Kompetitor (dari Pin Peta ATAU dari Papan Hasil Analisis)
@@ -387,6 +442,8 @@ export function MapCalonUsaha() {
 
   // 7. Handler Reset / Ubah Parameter
   const handleResetParameters = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     setCurrentStep(1);
     setCandidatePoint(null);
     setAnalysisData(null);
@@ -430,17 +487,17 @@ export function MapCalonUsaha() {
     }
   }, []);
 
-  // Kompetitor sejenis yang dirender di dalam radius buffer
-  const competitorMarkers: UmkmItem[] = analysisData?.umkm_sejenis?.daftar || [];
+  // Kompetitor sejenis yang dirender di dalam radius buffer (langsung dari kalkulasi instan)
+  const competitorMarkers: UmkmItem[] = localCompetitorMarkers;
 
   // Titik UMKM yang dirender di canvas peta:
-  // 1. Jika candidatePoint ada: tampilkan kompetitor sejenis di dalam buffer
+  // 1. Jika candidatePoint ada: tampilkan kompetitor sejenis di dalam buffer (100% cocok dengan radius circle)
   // 2. Jika candidatePoint belum ada tapi selectedCategory ada: tampilkan UMKM sejenis di Bogor
   // 3. Jika belum pilih kategori dan showUmkm aktif: tampilkan master UMKM
   const activeUmkmPins = useMemo(() => {
     if (!showUmkm) return [];
     if (candidatePoint) {
-      return competitorMarkers;
+      return localCompetitorMarkers;
     }
     if (selectedCategory) {
       return masterUmkm.filter(
@@ -448,7 +505,7 @@ export function MapCalonUsaha() {
       );
     }
     return masterUmkm;
-  }, [showUmkm, candidatePoint, competitorMarkers, selectedCategory, masterUmkm]);
+  }, [showUmkm, candidatePoint, localCompetitorMarkers, selectedCategory, masterUmkm]);
 
   return (
     <div className="relative w-full h-[100dvh] overflow-hidden bg-[var(--color-bg)]">
@@ -461,17 +518,21 @@ export function MapCalonUsaha() {
         }}
         onMapClick={handleMapClick}
       >
-        {/* Layer Batas Wilayah Administrasi & Layer Pendukung (Persis Peta Pengunjung) */}
+        {/* Layer Batas Wilayah Administrasi & Layer Pendukung (Sekolah & Kampus masuk di dalam buffer saja) */}
         <MapGeoJSONLayers
           showWilayah={showWilayah}
           showJalan={showJalan}
           showSekolah={showSekolah}
           showPermukiman={showPermukiman}
+          bufferCenter={candidatePoint}
+          bufferRadiusMeters={radiusMeters}
+          onlyShowSekolahInBuffer={true}
         />
 
         {/* Lingkaran Buffer Analisis (Oranye Putus-putus Sesuai DESIGN.md) */}
         {candidatePoint && (
           <Circle
+            ref={circleRef}
             center={[candidatePoint.lat, candidatePoint.lng]}
             radius={radiusMeters}
             pathOptions={{

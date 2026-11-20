@@ -24,7 +24,7 @@ export const KATEGORI_WARNA: Record<string, { fill: string; stroke: string }> = 
     Teknologi: { fill: "#2538B8", stroke: "#1A2885" },
 };
 
-// Statistik Sebaran UMKM per Kecamatan (Dataset Tervalidasi 23 Sep 2026 - Total 2.993 UMKM)
+// Statistik Sebaran UMKM per Kecamatan (Dataset Tervalidasi 23 Sep 2026 - Total 1.225 UMKM)
 export interface DistrictStat {
     nama: string;
     jumlah: number;
@@ -41,7 +41,7 @@ export const STATISTIK_KECAMATAN_RINTIK: DistrictStat[] = [
     { nama: "Bogor Timur",  jumlah: 260, persentase: 9,  warna: "#C084FC" },
 ];
 
-export const TOTAL_UMKM_VALID = 2993;
+export const TOTAL_UMKM_VALID = 1225;
 export const TOTAL_KECAMATAN_VALID = 6;
 export const TOTAL_KELURAHAN_VALID = 68;
 export const TANGGAL_VALIDASI_DATASET = "23 Sep 2026";
@@ -54,12 +54,43 @@ export const NORMALISASI_WILAYAH: Record<string, string> = {
     "Kebonkalapa": "Kebon Kelapa",
     "Babakanpasar": "Babakan Pasar",
     "Pasirjaya": "Pasir Jaya",
+    "Pasirkuda": "Pasir Kuda",
+    "Pasirmulya": "Pasir Mulya",
+    "Balumbangjaya": "Balumbang Jaya",
+    "Sindangbarang": "Sindang Barang",
     "Curugmekar": "Curug Mekar",
     "Gunungbatu": "Gunung Batu",
     "Kebonpedes": "Kebon Pedes",
     "Tegalgundil": "Tegal Gundil",
     "Situgede": "Situ Gede",
 };
+
+/**
+ * Normalisasi nama wilayah (Kecamatan / Kelurahan) untuk mengatasi variasi spasi & typo dalam GeoJSON
+ */
+export function normalizeRegionString(name?: string | null): string {
+    if (!name) return "";
+    const trimmed = name.trim();
+    if (NORMALISASI_WILAYAH[trimmed]) return NORMALISASI_WILAYAH[trimmed];
+    const stripped = trimmed.toLowerCase().replace(/[^a-z0-9]/g, "");
+    for (const [key, val] of Object.entries(NORMALISASI_WILAYAH)) {
+        if (key.toLowerCase().replace(/[^a-z0-9]/g, "") === stripped) {
+            return val;
+        }
+    }
+    return trimmed;
+}
+
+/**
+ * Mencocokkan nama wilayah (Kecamatan / Kelurahan) secara toleran terhadap spasi, huruf besar/kecil, dan ejaan
+ */
+export function isRegionMatch(regionInDb?: string | null, selectedRegion?: string | null): boolean {
+    if (!regionInDb || !selectedRegion) return false;
+    if (selectedRegion === "Semua") return true;
+    const normDb = normalizeRegionString(regionInDb).toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normSel = normalizeRegionString(selectedRegion).toLowerCase().replace(/[^a-z0-9]/g, "");
+    return normDb === normSel || normDb.includes(normSel) || normSel.includes(normDb);
+}
 
 // Daftar 6 Kecamatan dan Kelurahan di Kota Bogor
 export const KECAMATAN_KELURAHAN_BOGOR: Record<string, string[]> = {

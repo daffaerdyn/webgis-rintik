@@ -255,11 +255,9 @@ function registerHitLayerOnMap(map: L.Map, hitLayer: RegisteredHitLayer): () => 
     const layers: RegisteredHitLayer[] = [];
 
     const onMouseMove = (e: L.LeafletMouseEvent) => {
-      const anyMap = map as unknown as {
-        _animatingZoom?: boolean;
-        dragging?: L.Handler & { moving?: () => boolean };
-      };
-      if (anyMap._animatingZoom || anyMap.dragging?.moving?.()) {
+      const anyMap = map as unknown as { _animatingZoom?: boolean };
+      const isDragging = Boolean((map.dragging as unknown as { _moving?: boolean; moving?: () => boolean })?._moving || (map.dragging as unknown as { moving?: () => boolean })?.moving?.());
+      if (anyMap._animatingZoom || isDragging) {
         return;
       }
 
