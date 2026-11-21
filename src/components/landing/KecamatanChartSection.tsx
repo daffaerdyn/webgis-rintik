@@ -180,6 +180,9 @@ export function KecamatanChartSection() {
     };
 
     window.addEventListener("scroll", handleScrollOrIntersect, { passive: true });
+    window.addEventListener("rintik:scroll-update", handleScrollOrIntersect, {
+      passive: true,
+    });
     handleScrollOrIntersect();
 
     const observer = new IntersectionObserver(
@@ -198,6 +201,7 @@ export function KecamatanChartSection() {
 
     return () => {
       window.removeEventListener("scroll", handleScrollOrIntersect);
+      window.removeEventListener("rintik:scroll-update", handleScrollOrIntersect);
       observer.disconnect();
       cleanupsRef.current.forEach((fn) => fn());
     };

@@ -127,13 +127,13 @@ export function InformationFeatureSection() {
                 }}
                 className="min-w-0"
               >
-                <div className="relative aspect-[1/1.08] sm:aspect-[1/1.05] w-full rounded-xl sm:rounded-2xl overflow-hidden bg-stone-900 shadow-feature-card ring-1 ring-amber-900/15">
+                <div className="group relative aspect-[1/1.08] sm:aspect-[1/1.05] w-full rounded-xl sm:rounded-2xl overflow-hidden bg-stone-900 shadow-feature-card ring-1 ring-amber-900/15">
                   <Image
                     src={card.image}
                     alt={card.alt}
                     fill
                     sizes="(max-width: 768px) 30vw, (max-width: 1024px) 16vw, 160px"
-                    className="object-cover"
+                    className="object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03] motion-reduce:transition-none"
                   />
 
                   {/* Subtle top vignette so light screenshots stay crisp against cream background */}
@@ -243,13 +243,13 @@ export function InformationFeatureSection() {
                 }}
                 className="min-w-0"
               >
-                <div className="relative aspect-[1/1.08] sm:aspect-[1/1.05] w-full rounded-xl sm:rounded-2xl overflow-hidden bg-stone-900 shadow-feature-card ring-1 ring-amber-900/15 text-center">
+                <div className="group relative aspect-[1/1.08] sm:aspect-[1/1.05] w-full rounded-xl sm:rounded-2xl overflow-hidden bg-stone-900 shadow-feature-card ring-1 ring-amber-900/15 text-center">
                   <Image
                     src={card.image}
                     alt={card.alt}
                     fill
                     sizes="(max-width: 768px) 30vw, (max-width: 1024px) 16vw, 160px"
-                    className="object-cover"
+                    className="object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03] motion-reduce:transition-none"
                   />
 
                   {/* Subtle top vignette for cohesive visual depth */}

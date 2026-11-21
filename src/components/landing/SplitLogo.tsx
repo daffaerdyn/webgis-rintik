@@ -76,32 +76,38 @@ export function SplitLogo({
           heroRect.bottom < logoRect.bottom
         ) {
           const splitY = Math.round(heroRect.bottom - logoRect.top);
-          setLogoState({
-            mode: "split",
-            splitY,
-          });
+          setLogoState((prev) =>
+            prev.mode === "split" && prev.splitY === splitY
+              ? prev
+              : {
+                  mode: "split",
+                  splitY,
+                }
+          );
           return;
         }
       }
 
       // 3. Scan specifically marked candidate collision elements with [data-collide="true"]
-      // Highly optimized: avoids global DOM layout thrashing and prevents scroll stutter on mobile/tablet
+      // Avoids getComputedStyle() layout thrashing during ScrollSmoother frames
       const candidateElements = document.querySelectorAll<HTMLElement>("[data-collide='true']");
       let hasCollision = false;
 
       for (let i = 0; i < candidateElements.length; i++) {
         const el = candidateElements[i];
 
-        // Skip zero-dimension elements
-        if (el.offsetWidth === 0 && el.offsetHeight === 0) continue;
-
-        // Skip invisible elements (e.g. opacity: 0 before appearing)
-        const opacity = el.style.opacity || window.getComputedStyle(el).opacity;
-        if (opacity === "0" || el.style.visibility === "hidden" || el.style.display === "none") {
+        // Skip invisible or unrendered elements using inline style checks (no forced reflow)
+        if (
+          el.style.display === "none" ||
+          el.style.visibility === "hidden" ||
+          parseFloat(el.style.opacity || "1") < 0.15
+        ) {
           continue;
         }
 
         const elRect = el.getBoundingClientRect();
+        if (elRect.width === 0 && elRect.height === 0) continue;
+
         if (isRectOverlapping(logoRect, elRect)) {
           hasCollision = true;
           break;
@@ -131,11 +137,15 @@ export function SplitLogo({
     };
 
     window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("rintik:scroll-update", onScrollOrResize, {
+      passive: true,
+    });
     window.addEventListener("resize", onScrollOrResize, { passive: true });
     evaluateContrast();
 
     return () => {
       window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("rintik:scroll-update", onScrollOrResize);
       window.removeEventListener("resize", onScrollOrResize);
       cancelAnimationFrame(animationFrameId);
     };

@@ -1,16 +1,19 @@
 "use client";
 
 import { useRef } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Compass, CheckCircle2, ArrowRight } from "lucide-react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { useGSAP } from "@gsap/react";
+import { usePortalTarget } from "./usePortalTarget";
 
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger, useGSAP);
+  gsap.registerPlugin(ScrollTrigger, ScrollSmoother, useGSAP);
 }
 
 interface StepItem {
@@ -75,207 +78,248 @@ export function ResearchStepsSection() {
   const text1Ref = useRef<HTMLDivElement>(null);
   const text2Ref = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLElement>(null);
+  const stepImageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const overlayHost = usePortalTarget("landing-fixed-overlays");
 
   useGSAP(
     () => {
-      if (!sectionRef.current || !rootRef.current) return;
+      if (!overlayHost || !sectionRef.current || !rootRef.current) return;
 
-      // Initial GPU-composited state (ss2):
-      // Shutters are 51dvh tall and parked 100% off-screen via translate3d (yPercent),
-      // avoiding layout reflow (height) so opening/closing is 100% sub-pixel smooth.
-      gsap.set(shutterTopRef.current, {
-        yPercent: -100,
-        force3D: true,
-      });
-      gsap.set(shutterBottomRef.current, {
-        yPercent: 100,
-        force3D: true,
-      });
-      gsap.set(
-        [
-          dimOverlayRef.current,
-          text1Ref.current,
-          text2Ref.current,
-          footerRef.current,
-        ],
-        {
-          opacity: 0,
-        }
-      );
-      if (footerRef.current) {
-        gsap.set(footerRef.current, { pointerEvents: "none" });
-      }
-      if (contentWrapperRef.current) {
-        gsap.set(contentWrapperRef.current, {
-          filter: "blur(0px)",
+      const mm = gsap.matchMedia();
+
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        // Subtle inner-frame parallax on the 3 step photos
+        stepImageRefs.current.forEach((imgWrap) => {
+          if (!imgWrap) return;
+          gsap.fromTo(
+            imgWrap,
+            { yPercent: -6, scale: 1.12 },
+            {
+              yPercent: 6,
+              scale: 1.12,
+              ease: "none",
+              scrollTrigger: {
+                trigger: imgWrap.parentElement,
+                start: "top bottom",
+                end: "bottom top",
+                scrub: true,
+                invalidateOnRefresh: true,
+              },
+            }
+          );
         });
-      }
 
-      // Master Pinned Timeline:
-      // - Long scroll distance (+=5800) so shutter movement is slow and deliberate
-      // - High scrub smoothing (scrub: 1.2) so wheel/trackpad scrolling glides silkily
-      //   without steps or jumps when scrolling down or back up
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "bottom bottom",
-          end: "+=5800",
-          pin: true,
-          pinSpacing: true,
-          anticipatePin: 1,
-          scrub: 1.2,
-          invalidateOnRefresh: true,
-        },
-      });
-
-      // ------------------------------------------------------------------
-      // 1. CONTINUOUS SHUTTER GLIDE & PROGRESSIVE BLUR (t = 0 -> 8.6)
-      // Using unbroken linear interpolation ("none") across the scroll range
-      // so the 2 yellow divs never stop-and-start ("patah-patah") mid-scroll.
-      // ------------------------------------------------------------------
-      // Phase A (t = 0 -> 2.0, ss2 -> ss3): Shutters glide in to cover navbar (~22% screen)
-      tl.to(
-        shutterTopRef.current,
-        {
-          yPercent: -56,
-          ease: "none",
-          duration: 2.0,
-        },
-        0
-      )
-        .to(
-          shutterBottomRef.current,
+        // Initial GPU-composited state (ss2)
+        gsap.set(shutterTopRef.current, {
+          yPercent: -100,
+          force3D: true,
+        });
+        gsap.set(shutterBottomRef.current, {
+          yPercent: 100,
+          force3D: true,
+        });
+        gsap.set(
+          [
+            dimOverlayRef.current,
+            text1Ref.current,
+            text2Ref.current,
+            footerRef.current,
+          ],
           {
-            yPercent: 56,
+            opacity: 0,
+          }
+        );
+        if (footerRef.current) {
+          gsap.set(footerRef.current, { pointerEvents: "none" });
+        }
+        if (contentWrapperRef.current) {
+          gsap.set(contentWrapperRef.current, {
+            filter: "blur(0px)",
+          });
+        }
+
+        // Master Pinned Timeline synced cleanly with ScrollSmoother
+        const tl = gsap.timeline({
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "bottom bottom",
+            end: "+=5800",
+            pin: true,
+            pinSpacing: true,
+            anticipatePin: 1,
+            scrub: 0.15,
+            invalidateOnRefresh: true,
+          },
+        });
+
+        // Phase A (t = 0 -> 2.0, ss2 -> ss3): Shutters glide in to cover navbar (~22% screen)
+        tl.to(
+          shutterTopRef.current,
+          {
+            yPercent: -56,
             ease: "none",
             duration: 2.0,
           },
           0
         )
-        // Phase B (t = 2.0 -> 7.4, ss3 -> ss4 -> ss6): Gentle, slow inward glide
-        // while "Pilih lokasi tepat." (ss4) and "Wujudkan bisnis hebat." (ss6) appear
-        .to(
-          shutterTopRef.current,
+          .to(
+            shutterBottomRef.current,
+            {
+              yPercent: 56,
+              ease: "none",
+              duration: 2.0,
+            },
+            0
+          )
+          // Phase B (t = 2.0 -> 7.4, ss3 -> ss4 -> ss6): Gentle, slow inward glide
+          .to(
+            shutterTopRef.current,
+            {
+              yPercent: -16,
+              ease: "none",
+              duration: 5.4,
+            },
+            2.0
+          )
+          .to(
+            shutterBottomRef.current,
+            {
+              yPercent: 16,
+              ease: "none",
+              duration: 5.4,
+            },
+            2.0
+          )
+          // Phase C (t = 7.4 -> 8.8, ss6 -> ss9): Shutters finish closing 100% seamlessly
+          .to(
+            shutterTopRef.current,
+            {
+              yPercent: 0,
+              ease: "none",
+              duration: 1.4,
+            },
+            7.4
+          )
+          .to(
+            shutterBottomRef.current,
+            {
+              yPercent: 0,
+              ease: "none",
+              duration: 1.4,
+            },
+            7.4
+          );
+
+        // Continuous progressive blur & darkening of ResearchSteps layer (t = 0 -> 8.0)
+        tl.to(
+          contentWrapperRef.current,
           {
-            yPercent: -16,
+            filter: "blur(18px)",
             ease: "none",
-            duration: 5.4,
+            duration: 8.0,
           },
-          2.0
-        )
-        .to(
-          shutterBottomRef.current,
+          0
+        ).to(
+          dimOverlayRef.current,
           {
-            yPercent: 16,
+            opacity: 0.78,
             ease: "none",
-            duration: 5.4,
+            duration: 8.0,
           },
-          2.0
-        )
-        // Phase C (t = 7.4 -> 8.8, ss6 -> ss9): Shutters finish closing 100% seamlessly
-        .to(
-          shutterTopRef.current,
-          {
-            yPercent: 0,
-            ease: "none",
-            duration: 1.4,
-          },
-          7.4
-        )
-        .to(
-          shutterBottomRef.current,
-          {
-            yPercent: 0,
-            ease: "none",
-            duration: 1.4,
-          },
-          7.4
+          0
         );
 
-      // Continuous progressive blur & darkening of ResearchSteps layer (t = 0 -> 8.0)
-      tl.to(
-        contentWrapperRef.current,
-        {
-          filter: "blur(18px)",
-          ease: "none",
-          duration: 8.0,
-        },
-        0
-      ).to(
-        dimOverlayRef.current,
-        {
-          opacity: 0.78,
-          ease: "none",
-          duration: 8.0,
-        },
-        0
-      );
-
-      // ------------------------------------------------------------------
-      // 2. TEXT CHOREOGRAPHY ALONG THE CONTINUOUS GLIDE
-      // ------------------------------------------------------------------
-      // ss4: "Pilih lokasi tepat." (fades in after ss3, holds, then fades out)
-      tl.fromTo(
-        text1Ref.current,
-        { opacity: 0, y: 10 },
-        { opacity: 1, y: 0, ease: "power2.out", duration: 0.9 },
-        2.1
-      )
-        .to(
+        // ss4: "Pilih lokasi tepat."
+        tl.fromTo(
           text1Ref.current,
-          {
-            opacity: 0,
-            y: -10,
-            ease: "power2.in",
-            duration: 0.8,
-          },
-          4.1
-        )
-
-        // ss6: "Wujudkan bisnis hebat." (fades in as slit narrows further, holds, fades out)
-        .fromTo(
-          text2Ref.current,
           { opacity: 0, y: 10 },
           { opacity: 1, y: 0, ease: "power2.out", duration: 0.9 },
-          5.0
+          2.1
         )
-        .to(
-          text2Ref.current,
-          {
-            opacity: 0,
-            y: -10,
-            ease: "power2.in",
-            duration: 0.8,
-          },
-          6.9
-        );
+          .to(
+            text1Ref.current,
+            {
+              opacity: 0,
+              y: -10,
+              ease: "power2.in",
+              duration: 0.8,
+            },
+            4.1
+          )
+          // ss6: "Wujudkan bisnis hebat."
+          .fromTo(
+            text2Ref.current,
+            { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, ease: "power2.out", duration: 0.9 },
+            5.0
+          )
+          .to(
+            text2Ref.current,
+            {
+              opacity: 0,
+              y: -10,
+              ease: "power2.in",
+              duration: 0.8,
+            },
+            6.9
+          );
 
-      // ------------------------------------------------------------------
-      // 3. FULL-SCREEN AMBER FOOTER REVEAL (ss9, t = 8.7 -> 10.0)
-      // ------------------------------------------------------------------
-      tl.fromTo(
-        footerRef.current,
-        { opacity: 0, y: 14 },
-        {
-          opacity: 1,
-          y: 0,
-          ease: "power2.out",
-          duration: 1.1,
-          onStart: () => {
-            if (footerRef.current) {
-              footerRef.current.style.pointerEvents = "auto";
-            }
+        // Full-Screen Amber Footer Reveal (ss9, t = 8.7 -> 10.0)
+        tl.fromTo(
+          footerRef.current,
+          { opacity: 0, y: 14 },
+          {
+            opacity: 1,
+            y: 0,
+            ease: "power2.out",
+            duration: 1.1,
+            onStart: () => {
+              if (footerRef.current) {
+                footerRef.current.style.pointerEvents = "auto";
+              }
+            },
+            onReverseComplete: () => {
+              if (footerRef.current) {
+                footerRef.current.style.pointerEvents = "none";
+              }
+            },
           },
-          onReverseComplete: () => {
-            if (footerRef.current) {
-              footerRef.current.style.pointerEvents = "none";
-            }
-          },
-        },
-        8.7
-      ).to({}, { duration: 0.6 }, 9.8);
+          8.7
+        ).to({}, { duration: 0.6 }, 9.8);
+      });
+
+      mm.add("(prefers-reduced-motion: reduce)", () => {
+        stepImageRefs.current.forEach((imgWrap) => {
+          if (imgWrap) gsap.set(imgWrap, { yPercent: 0, scale: 1 });
+        });
+        gsap.set([shutterTopRef.current, shutterBottomRef.current], {
+          display: "none",
+        });
+        gsap.set([dimOverlayRef.current, text1Ref.current, text2Ref.current], {
+          display: "none",
+        });
+        if (footerRef.current) {
+          gsap.set(footerRef.current, {
+            position: "relative",
+            inset: "auto",
+            opacity: 1,
+            y: 0,
+            pointerEvents: "auto",
+            minHeight: "70dvh",
+          });
+        }
+      });
+
+      const rafId = window.requestAnimationFrame(() => {
+        ScrollTrigger.refresh();
+      });
+
+      return () => {
+        window.cancelAnimationFrame(rafId);
+        mm.revert();
+      };
     },
-    { scope: rootRef }
+    { scope: rootRef, dependencies: [overlayHost], revertOnUpdate: true }
   );
 
   const handleScrollTo = (
@@ -283,123 +327,27 @@ export function ResearchStepsSection() {
     targetId: string
   ) => {
     e.preventDefault();
+    const smoother = ScrollSmoother.get();
     if (targetId === "beranda") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
-      const elem = document.getElementById(targetId);
-      if (elem) {
+      if (smoother) {
+        smoother.scrollTo(0, true);
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return;
+    }
+    const elem = document.getElementById(targetId);
+    if (elem) {
+      if (smoother) {
+        smoother.scrollTo(elem, true, "top top");
+      } else {
         elem.scrollIntoView({ behavior: "smooth" });
       }
     }
   };
 
-  return (
-    <div ref={rootRef} className="relative w-full">
-      {/* ================================================================ */}
-      {/* PINNED SECTION: Research Steps (01, 02, 03 + CTA Button)         */}
-      {/* Normal stacking order so LandingNavbar (z-[60]) stays visible    */}
-      {/* until the top yellow shutter (z-[70]) descends in ss3.           */}
-      {/* ================================================================ */}
-      <section
-        ref={sectionRef}
-        id="langkah-riset"
-        className="w-full bg-bg-cream scroll-mt-20 pt-14 pb-12 sm:pt-16 sm:pb-14 md:pt-20 md:pb-16 px-5 sm:px-8 md:px-12 lg:px-24 border-t border-border-cream selection:bg-secondary selection:text-white"
-      >
-        <div
-          ref={contentWrapperRef}
-          style={{ willChange: "filter" }}
-          className="max-w-6xl mx-auto"
-        >
-          {/* Section Header */}
-          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12 md:mb-14">
-            <h2 className="text-[1.625rem] sm:text-4xl md:text-[2.75rem] font-extrabold text-secondary leading-[1.2] tracking-tight mb-3 break-words min-w-0">
-              Riset Lokasi dalam 3 Langkah Cepat
-            </h2>
-            <p className="text-stone-700 text-base leading-[1.6] max-w-xl mx-auto">
-              Lakukan telaah kelayakan awal calon lokasi usaha secara sistematis
-              sebelum membuat keputusan sewa ruko melalui panduan berbasis data
-              spasial.
-            </p>
-          </div>
-
-          {/* 3 Alternating Step Cards */}
-          <div className="space-y-5 sm:space-y-6 md:space-y-8">
-            {RESEARCH_STEPS.map((step, index) => {
-              const isEven = index % 2 === 1;
-
-              return (
-                <motion.article
-                  key={step.number}
-                  initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.15 }}
-                  transition={{ duration: 0.55, delay: 0.06 }}
-                  className={`flex flex-col ${
-                    isEven ? "md:flex-row-reverse" : "md:flex-row"
-                  } items-center gap-4 sm:gap-6 md:gap-8 bg-surface-white p-4 sm:p-6 md:p-7 lg:p-8 rounded-2xl sm:rounded-3xl border border-stone-200/80 shadow-sm sm:shadow-md md:hover:-translate-y-0.5 transition-transform duration-200 motion-reduce:transition-none`}
-                >
-                  {/* Image Container: compact 16:10 on mobile so entire card fits comfortably on 1 screen */}
-                  <div className="relative w-full md:w-5/12 aspect-[16/10] sm:aspect-[16/9] md:aspect-auto md:h-64 lg:h-72 rounded-xl sm:rounded-2xl overflow-hidden shrink-0 border border-stone-100">
-                    <Image
-                      src={step.imageSrc}
-                      alt={step.imageAlt}
-                      fill
-                      sizes="(max-width: 768px) 92vw, 42vw"
-                      className="object-cover"
-                    />
-                    <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 bg-secondary text-white text-xs font-extrabold tabular-nums px-2.5 py-1 rounded-lg shadow-sm">
-                      {step.number}
-                    </div>
-                  </div>
-
-                  {/* Content Container */}
-                  <div className="w-full md:w-7/12 text-left min-w-0">
-                    <h3 className="text-lg sm:text-2xl lg:text-[1.75rem] font-extrabold text-stone-900 leading-[1.25] tracking-tight mb-2 sm:mb-3 break-words">
-                      {step.title}
-                    </h3>
-                    <p className="text-stone-600 text-base leading-[1.6] mb-4 sm:mb-5">
-                      {step.description}
-                    </p>
-
-                    {/* Bullet Highlights: icons aligned cleanly with the first line of wrapped text */}
-                    <ul className="space-y-2 sm:space-y-2.5">
-                      {step.points.map((point) => (
-                        <li
-                          key={point}
-                          className="flex items-start gap-2.5 text-sm sm:text-[15px] text-stone-700 leading-[1.45]"
-                        >
-                          <CheckCircle2
-                            className="w-4 h-4 text-cat-kerajinan shrink-0 mt-0.5"
-                            aria-hidden="true"
-                          />
-                          <span>{point}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </motion.article>
-              );
-            })}
-          </div>
-
-          {/* Bottom CTA to start research */}
-          <div className="text-center mt-8 sm:mt-10 md:mt-14">
-            <Link
-              href="/map/calon-usaha"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 sm:gap-2.5 min-h-[48px] px-4 sm:px-8 py-3.5 sm:py-4 rounded-xl bg-secondary hover:bg-brand-red-dark text-white font-bold text-[13.5px] sm:text-base shadow-lg active:scale-[0.98] transition-[transform,background-color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring motion-reduce:transition-none"
-            >
-              <Compass className="w-4.5 h-4.5 sm:w-5 sm:h-5 shrink-0" aria-hidden="true" />
-              <span>Mulai Riset Lokasi Usaha Sekarang</span>
-              <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================================ */}
-      {/* FIXED VIEWPORT OVERLAYS (GPU-composited via translate3d)         */}
-      {/* ================================================================ */}
-
+  const fixedOverlays = (
+    <>
       {/* Dimming Overlay in the slit (z-[65]) */}
       <div
         ref={dimOverlayRef}
@@ -517,6 +465,122 @@ export function ResearchStepsSection() {
           </div>
         </div>
       </footer>
+    </>
+  );
+
+  return (
+    <div ref={rootRef} className="relative w-full">
+      {/* ================================================================ */}
+      {/* PINNED SECTION: Research Steps (01, 02, 03 + CTA Button)         */}
+      {/* Normal stacking order so LandingNavbar (z-[60]) stays visible    */}
+      {/* until the top yellow shutter (z-[70]) descends in ss3.           */}
+      {/* ================================================================ */}
+      <section
+        ref={sectionRef}
+        id="langkah-riset"
+        className="relative z-20 w-full bg-bg-cream scroll-mt-20 pt-14 pb-12 sm:pt-16 sm:pb-14 md:pt-20 md:pb-16 px-5 sm:px-8 md:px-12 lg:px-24 border-t border-border-cream selection:bg-secondary selection:text-white"
+      >
+        <div
+          ref={contentWrapperRef}
+          style={{ willChange: "filter" }}
+          className="max-w-6xl mx-auto"
+        >
+          {/* Section Header */}
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-12 md:mb-14">
+            <h2 className="text-[1.625rem] sm:text-4xl md:text-[2.75rem] font-extrabold text-secondary leading-[1.2] tracking-tight mb-3 break-words min-w-0">
+              Riset Lokasi dalam 3 Langkah Cepat
+            </h2>
+            <p className="text-stone-700 text-base leading-[1.6] max-w-xl mx-auto">
+              Lakukan telaah kelayakan awal calon lokasi usaha secara sistematis
+              sebelum membuat keputusan sewa ruko melalui panduan berbasis data
+              spasial.
+            </p>
+          </div>
+
+          {/* 3 Alternating Step Cards */}
+          <div className="space-y-5 sm:space-y-6 md:space-y-8">
+            {RESEARCH_STEPS.map((step, index) => {
+              const isEven = index % 2 === 1;
+
+              return (
+                <motion.article
+                  key={step.number}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.15 }}
+                  transition={{ duration: 0.55, delay: 0.06 }}
+                  className={`flex flex-col ${
+                    isEven ? "md:flex-row-reverse" : "md:flex-row"
+                  } items-center gap-4 sm:gap-6 md:gap-8 bg-surface-white p-4 sm:p-6 md:p-7 lg:p-8 rounded-2xl sm:rounded-3xl border border-stone-200/80 shadow-sm sm:shadow-md md:hover:-translate-y-0.5 transition-transform duration-200 motion-reduce:transition-none`}
+                >
+                  {/* Image Container: compact 16:10 on mobile + smooth inner parallax */}
+                  <div className="relative w-full md:w-5/12 aspect-[16/10] sm:aspect-[16/9] md:aspect-auto md:h-64 lg:h-72 rounded-xl sm:rounded-2xl overflow-hidden shrink-0 border border-stone-100">
+                    <div
+                      ref={(el) => {
+                        stepImageRefs.current[index] = el;
+                      }}
+                      style={{ willChange: "transform" }}
+                      className="relative w-full h-full"
+                    >
+                      <Image
+                        src={step.imageSrc}
+                        alt={step.imageAlt}
+                        fill
+                        sizes="(max-width: 768px) 92vw, 42vw"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 bg-secondary text-white text-xs font-extrabold tabular-nums px-2.5 py-1 rounded-lg shadow-sm">
+                      {step.number}
+                    </div>
+                  </div>
+
+                  {/* Content Container */}
+                  <div className="w-full md:w-7/12 text-left min-w-0">
+                    <h3 className="text-lg sm:text-2xl lg:text-[1.75rem] font-extrabold text-stone-900 leading-[1.25] tracking-tight mb-2 sm:mb-3 break-words">
+                      {step.title}
+                    </h3>
+                    <p className="text-stone-600 text-base leading-[1.6] mb-4 sm:mb-5">
+                      {step.description}
+                    </p>
+
+                    {/* Bullet Highlights: icons aligned cleanly with the first line of wrapped text */}
+                    <ul className="space-y-2 sm:space-y-2.5">
+                      {step.points.map((point) => (
+                        <li
+                          key={point}
+                          className="flex items-start gap-2.5 text-sm sm:text-[15px] text-stone-700 leading-[1.45]"
+                        >
+                          <CheckCircle2
+                            className="w-4 h-4 text-cat-kerajinan shrink-0 mt-0.5"
+                            aria-hidden="true"
+                          />
+                          <span>{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </motion.article>
+              );
+            })}
+          </div>
+
+          {/* Bottom CTA to start research */}
+          <div className="text-center mt-8 sm:mt-10 md:mt-14">
+            <Link
+              href="/map/calon-usaha"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 sm:gap-2.5 min-h-[48px] px-4 sm:px-8 py-3.5 sm:py-4 rounded-xl bg-secondary hover:bg-brand-red-dark text-white font-bold text-[13.5px] sm:text-base shadow-lg active:scale-[0.98] transition-[transform,background-color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring motion-reduce:transition-none"
+            >
+              <Compass className="w-4.5 h-4.5 sm:w-5 sm:h-5 shrink-0" aria-hidden="true" />
+              <span>Mulai Riset Lokasi Usaha Sekarang</span>
+              <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Fixed viewport overlays portaled outside #smooth-wrapper */}
+      {overlayHost ? createPortal(fixedOverlays, overlayHost) : fixedOverlays}
     </div>
   );
 }

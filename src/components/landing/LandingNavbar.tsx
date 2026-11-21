@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { ScrollSmoother } from "gsap/ScrollSmoother";
 import { SplitLogo } from "./SplitLogo";
 
 interface MenuItem {
@@ -52,9 +53,22 @@ export function LandingNavbar({
     e.preventDefault();
     closeMenu();
     const targetId = href.replace("#", "");
+    const smoother = ScrollSmoother.get();
+    if (targetId === "beranda") {
+      if (smoother) {
+        smoother.scrollTo(0, true);
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return;
+    }
     const elem = document.getElementById(targetId);
     if (elem) {
-      elem.scrollIntoView({ behavior: "smooth" });
+      if (smoother) {
+        smoother.scrollTo(elem, true, "top top");
+      } else {
+        elem.scrollIntoView({ behavior: "smooth" });
+      }
     }
   };
 

@@ -1,10 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { motion } from "framer-motion";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { ScrollSmoother } from "gsap/ScrollSmoother";
+import { useGSAP } from "@gsap/react";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger, ScrollSmoother, useGSAP);
+}
 
 // Desktop Carousel Photography (>= 1024px / lg)
 const DESKTOP_CAROUSEL_IMAGES = [
@@ -61,6 +69,9 @@ interface HeroSectionProps {
 
 export function HeroSection({}: HeroSectionProps = {}) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const heroRef = useRef<HTMLElement>(null);
+  const bgParallaxRef = useRef<HTMLDivElement>(null);
+  const bodyParallaxRef = useRef<HTMLElement>(null);
 
   // Auto-play carousel smoothly
   useEffect(() => {
@@ -70,53 +81,121 @@ export function HeroSection({}: HeroSectionProps = {}) {
     return () => clearInterval(timer);
   }, []);
 
+  // Multi-layer Hero scroll parallax (background trails down, foreground glides cleanly)
+  useGSAP(
+    () => {
+      if (!heroRef.current) return;
+      const mm = gsap.matchMedia();
+
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        if (bgParallaxRef.current) {
+          gsap.fromTo(
+            bgParallaxRef.current,
+            { yPercent: -5 },
+            {
+              yPercent: 11,
+              ease: "none",
+              scrollTrigger: {
+                trigger: heroRef.current,
+                start: "top top",
+                end: "bottom top",
+                scrub: true,
+                invalidateOnRefresh: true,
+              },
+            }
+          );
+        }
+
+        if (bodyParallaxRef.current) {
+          gsap.fromTo(
+            bodyParallaxRef.current,
+            { y: 0, opacity: 1 },
+            {
+              y: -36,
+              opacity: 0.82,
+              ease: "none",
+              scrollTrigger: {
+                trigger: heroRef.current,
+                start: "top top",
+                end: "bottom top",
+                scrub: true,
+                invalidateOnRefresh: true,
+              },
+            }
+          );
+        }
+      });
+
+      return () => mm.revert();
+    },
+    { scope: heroRef }
+  );
+
+  const handleScrollDown = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const target = document.getElementById("tentang");
+    const smoother = ScrollSmoother.get();
+    if (target && smoother) {
+      smoother.scrollTo(target, true, "top top");
+    } else if (target) {
+      target.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <section
+      ref={heroRef}
       id="beranda"
       className="relative z-30 min-h-dvh w-full flex flex-col justify-between px-5 sm:px-8 md:px-12 lg:px-24 py-4 md:py-6 overflow-hidden bg-black text-left"
     >
-      {/* Background Carousel with Smooth Fade & Real Bogor UMKM Photography */}
+      {/* Background Carousel with Smooth Fade, Parallax Bleed & Real Bogor UMKM Photography */}
       <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-        {/* Desktop Carousel (Screen >= 1024px / lg) */}
-        <div className="hidden lg:block absolute inset-0">
-          {DESKTOP_CAROUSEL_IMAGES.map((item, idx) => (
-            <div
-              key={item.src}
-              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                idx === currentIndex ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              <Image
-                src={item.src}
-                alt={item.alt}
-                fill
-                priority={idx === 0}
-                sizes="100vw"
-                className="object-cover object-center"
-              />
-            </div>
-          ))}
-        </div>
+        <div
+          ref={bgParallaxRef}
+          style={{ willChange: "transform" }}
+          className="absolute -inset-y-[10%] inset-x-0"
+        >
+          {/* Desktop Carousel (Screen >= 1024px / lg) */}
+          <div className="hidden lg:block absolute inset-0">
+            {DESKTOP_CAROUSEL_IMAGES.map((item, idx) => (
+              <div
+                key={item.src}
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                  idx === currentIndex ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <Image
+                  src={item.src}
+                  alt={item.alt}
+                  fill
+                  priority={idx === 0}
+                  sizes="100vw"
+                  className="object-cover object-center"
+                />
+              </div>
+            ))}
+          </div>
 
-        {/* Mobile & Tablet Carousel (Screen < 1024px, file awalan MT_carousel1-5) */}
-        <div className="block lg:hidden absolute inset-0">
-          {MOBILE_TABLET_CAROUSEL_IMAGES.map((item, idx) => (
-            <div
-              key={item.src}
-              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                idx === currentIndex ? "opacity-100" : "opacity-0"
-              }`}
-            >
-              <Image
-                src={item.src}
-                alt={item.alt}
-                fill
-                priority={idx === 0}
-                sizes="(max-width: 1023px) 100vw, 100vw"
-                className="object-cover object-center"
-              />
-            </div>
-          ))}
+          {/* Mobile & Tablet Carousel (Screen < 1024px, file awalan MT_carousel1-5) */}
+          <div className="block lg:hidden absolute inset-0">
+            {MOBILE_TABLET_CAROUSEL_IMAGES.map((item, idx) => (
+              <div
+                key={item.src}
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                  idx === currentIndex ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                <Image
+                  src={item.src}
+                  alt={item.alt}
+                  fill
+                  priority={idx === 0}
+                  sizes="(max-width: 1023px) 100vw, 100vw"
+                  className="object-cover object-center"
+                />
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Soft Vignette Overlay: slightly darker at bottom & left for sharp text contrast */}
@@ -131,7 +210,11 @@ export function HeroSection({}: HeroSectionProps = {}) {
       />
 
       {/* Hero Bottom Body: Left-aligned layout matching mockup with calibrated responsive scales */}
-      <main className="relative z-10 w-full max-w-7xl pb-4 sm:pb-6 md:pb-8 lg:pb-6 pt-12 sm:pt-16 md:pt-20 flex flex-col items-start text-left mt-auto">
+      <main
+        ref={bodyParallaxRef}
+        style={{ willChange: "transform, opacity" }}
+        className="relative z-10 w-full max-w-7xl pb-4 sm:pb-6 md:pb-8 lg:pb-6 pt-12 sm:pt-16 md:pt-20 flex flex-col items-start text-left mt-auto"
+      >
         {/* Outline Peta Kota Bogor (Ukuran proporsional mobile: w-11, tablet: w-16, desktop: w-20) */}
         <div className="mb-2.5 sm:mb-3 md:mb-4 select-none pointer-events-none">
           <Image
@@ -178,6 +261,7 @@ export function HeroSection({}: HeroSectionProps = {}) {
       <footer className="relative z-10 w-full flex justify-center pb-2 pt-2 sm:pb-3 sm:pt-3 md:pb-4">
         <motion.a
           href="#tentang"
+          onClick={handleScrollDown}
           aria-label="Scroll menuju bagian Tentang Kami"
           animate={{
             y: [0, 6, 0],
