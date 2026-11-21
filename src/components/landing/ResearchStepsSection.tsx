@@ -85,230 +85,204 @@ export function ResearchStepsSection() {
     () => {
       if (!overlayHost || !sectionRef.current || !rootRef.current) return;
 
-      const mm = gsap.matchMedia();
-
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        // Subtle inner-frame parallax on the 3 step photos
-        stepImageRefs.current.forEach((imgWrap) => {
-          if (!imgWrap) return;
-          gsap.fromTo(
-            imgWrap,
-            { yPercent: -6, scale: 1.12 },
-            {
-              yPercent: 6,
-              scale: 1.12,
-              ease: "none",
-              scrollTrigger: {
-                trigger: imgWrap.parentElement,
-                start: "top bottom",
-                end: "bottom top",
-                scrub: true,
-                invalidateOnRefresh: true,
-              },
-            }
-          );
-        });
-
-        // Initial GPU-composited state (ss2)
-        gsap.set(shutterTopRef.current, {
-          yPercent: -100,
-          force3D: true,
-        });
-        gsap.set(shutterBottomRef.current, {
-          yPercent: 100,
-          force3D: true,
-        });
-        gsap.set(
-          [
-            dimOverlayRef.current,
-            text1Ref.current,
-            text2Ref.current,
-            footerRef.current,
-          ],
+      // Subtle inner-frame parallax on the 3 step photos
+      stepImageRefs.current.forEach((imgWrap) => {
+        if (!imgWrap) return;
+        gsap.fromTo(
+          imgWrap,
+          { yPercent: -6, scale: 1.12 },
           {
-            opacity: 0,
+            yPercent: 6,
+            scale: 1.12,
+            ease: "none",
+            scrollTrigger: {
+              trigger: imgWrap.parentElement,
+              start: "top bottom",
+              end: "bottom top",
+              scrub: true,
+              invalidateOnRefresh: true,
+            },
           }
         );
-        if (footerRef.current) {
-          gsap.set(footerRef.current, { pointerEvents: "none" });
-        }
-        if (contentWrapperRef.current) {
-          gsap.set(contentWrapperRef.current, {
-            filter: "blur(0px)",
-          });
-        }
+      });
 
-        // Master Pinned Timeline synced cleanly with ScrollSmoother
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "bottom bottom",
-            end: "+=5800",
-            pin: true,
-            pinSpacing: true,
-            anticipatePin: 1,
-            scrub: 0.15,
-            invalidateOnRefresh: true,
-          },
+      // Initial GPU-composited state (ss2)
+      gsap.set(shutterTopRef.current, {
+        yPercent: -100,
+        force3D: true,
+      });
+      gsap.set(shutterBottomRef.current, {
+        yPercent: 100,
+        force3D: true,
+      });
+      gsap.set(
+        [
+          dimOverlayRef.current,
+          text1Ref.current,
+          text2Ref.current,
+          footerRef.current,
+        ],
+        {
+          opacity: 0,
+        }
+      );
+      if (footerRef.current) {
+        gsap.set(footerRef.current, { pointerEvents: "none" });
+      }
+      if (contentWrapperRef.current) {
+        gsap.set(contentWrapperRef.current, {
+          filter: "blur(0px)",
         });
+      }
 
-        // Phase A (t = 0 -> 2.0, ss2 -> ss3): Shutters glide in to cover navbar (~22% screen)
-        tl.to(
-          shutterTopRef.current,
+      // Master Pinned Timeline synced cleanly with ScrollSmoother
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: sectionRef.current,
+          start: "bottom bottom",
+          end: "+=5800",
+          pin: true,
+          pinSpacing: true,
+          anticipatePin: 1,
+          scrub: 0.15,
+          invalidateOnRefresh: true,
+        },
+      });
+
+      // Phase A (t = 0 -> 2.0, ss2 -> ss3): Shutters glide in to cover navbar (~22% screen)
+      tl.to(
+        shutterTopRef.current,
+        {
+          yPercent: -56,
+          ease: "none",
+          duration: 2.0,
+        },
+        0
+      )
+        .to(
+          shutterBottomRef.current,
           {
-            yPercent: -56,
+            yPercent: 56,
             ease: "none",
             duration: 2.0,
           },
           0
         )
-          .to(
-            shutterBottomRef.current,
-            {
-              yPercent: 56,
-              ease: "none",
-              duration: 2.0,
-            },
-            0
-          )
-          // Phase B (t = 2.0 -> 7.4, ss3 -> ss4 -> ss6): Gentle, slow inward glide
-          .to(
-            shutterTopRef.current,
-            {
-              yPercent: -16,
-              ease: "none",
-              duration: 5.4,
-            },
-            2.0
-          )
-          .to(
-            shutterBottomRef.current,
-            {
-              yPercent: 16,
-              ease: "none",
-              duration: 5.4,
-            },
-            2.0
-          )
-          // Phase C (t = 7.4 -> 8.8, ss6 -> ss9): Shutters finish closing 100% seamlessly
-          .to(
-            shutterTopRef.current,
-            {
-              yPercent: 0,
-              ease: "none",
-              duration: 1.4,
-            },
-            7.4
-          )
-          .to(
-            shutterBottomRef.current,
-            {
-              yPercent: 0,
-              ease: "none",
-              duration: 1.4,
-            },
-            7.4
-          );
-
-        // Continuous progressive blur & darkening of ResearchSteps layer (t = 0 -> 8.0)
-        tl.to(
-          contentWrapperRef.current,
+        // Phase B (t = 2.0 -> 7.4, ss3 -> ss4 -> ss6): Gentle, slow inward glide
+        .to(
+          shutterTopRef.current,
           {
-            filter: "blur(18px)",
+            yPercent: -16,
             ease: "none",
-            duration: 8.0,
+            duration: 5.4,
           },
-          0
-        ).to(
-          dimOverlayRef.current,
+          2.0
+        )
+        .to(
+          shutterBottomRef.current,
           {
-            opacity: 0.78,
+            yPercent: 16,
             ease: "none",
-            duration: 8.0,
+            duration: 5.4,
           },
-          0
+          2.0
+        )
+        // Phase C (t = 7.4 -> 8.8, ss6 -> ss9): Shutters finish closing 100% seamlessly
+        .to(
+          shutterTopRef.current,
+          {
+            yPercent: 0,
+            ease: "none",
+            duration: 1.4,
+          },
+          7.4
+        )
+        .to(
+          shutterBottomRef.current,
+          {
+            yPercent: 0,
+            ease: "none",
+            duration: 1.4,
+          },
+          7.4
         );
 
-        // ss4: "Pilih lokasi tepat."
-        tl.fromTo(
+      // Continuous progressive blur & darkening of ResearchSteps layer (t = 0 -> 8.0)
+      tl.to(
+        contentWrapperRef.current,
+        {
+          filter: "blur(18px)",
+          ease: "none",
+          duration: 8.0,
+        },
+        0
+      ).to(
+        dimOverlayRef.current,
+        {
+          opacity: 0.78,
+          ease: "none",
+          duration: 8.0,
+        },
+        0
+      );
+
+      // ss4: "Pilih lokasi tepat."
+      tl.fromTo(
+        text1Ref.current,
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, ease: "power2.out", duration: 0.9 },
+        2.1
+      )
+        .to(
           text1Ref.current,
+          {
+            opacity: 0,
+            y: -10,
+            ease: "power2.in",
+            duration: 0.8,
+          },
+          4.1
+        )
+        // ss6: "Wujudkan bisnis hebat."
+        .fromTo(
+          text2Ref.current,
           { opacity: 0, y: 10 },
           { opacity: 1, y: 0, ease: "power2.out", duration: 0.9 },
-          2.1
+          5.0
         )
-          .to(
-            text1Ref.current,
-            {
-              opacity: 0,
-              y: -10,
-              ease: "power2.in",
-              duration: 0.8,
-            },
-            4.1
-          )
-          // ss6: "Wujudkan bisnis hebat."
-          .fromTo(
-            text2Ref.current,
-            { opacity: 0, y: 10 },
-            { opacity: 1, y: 0, ease: "power2.out", duration: 0.9 },
-            5.0
-          )
-          .to(
-            text2Ref.current,
-            {
-              opacity: 0,
-              y: -10,
-              ease: "power2.in",
-              duration: 0.8,
-            },
-            6.9
-          );
-
-        // Full-Screen Amber Footer Reveal (ss9, t = 8.7 -> 10.0)
-        tl.fromTo(
-          footerRef.current,
-          { opacity: 0, y: 14 },
+        .to(
+          text2Ref.current,
           {
-            opacity: 1,
-            y: 0,
-            ease: "power2.out",
-            duration: 1.1,
-            onStart: () => {
-              if (footerRef.current) {
-                footerRef.current.style.pointerEvents = "auto";
-              }
-            },
-            onReverseComplete: () => {
-              if (footerRef.current) {
-                footerRef.current.style.pointerEvents = "none";
-              }
-            },
+            opacity: 0,
+            y: -10,
+            ease: "power2.in",
+            duration: 0.8,
           },
-          8.7
-        ).to({}, { duration: 0.6 }, 9.8);
-      });
+          6.9
+        );
 
-      mm.add("(prefers-reduced-motion: reduce)", () => {
-        stepImageRefs.current.forEach((imgWrap) => {
-          if (imgWrap) gsap.set(imgWrap, { yPercent: 0, scale: 1 });
-        });
-        gsap.set([shutterTopRef.current, shutterBottomRef.current], {
-          display: "none",
-        });
-        gsap.set([dimOverlayRef.current, text1Ref.current, text2Ref.current], {
-          display: "none",
-        });
-        if (footerRef.current) {
-          gsap.set(footerRef.current, {
-            position: "relative",
-            inset: "auto",
-            opacity: 1,
-            y: 0,
-            pointerEvents: "auto",
-            minHeight: "70dvh",
-          });
-        }
-      });
+      // Full-Screen Amber Footer Reveal (ss9, t = 8.7 -> 10.0)
+      tl.fromTo(
+        footerRef.current,
+        { opacity: 0, y: 14 },
+        {
+          opacity: 1,
+          y: 0,
+          ease: "power2.out",
+          duration: 1.1,
+          onStart: () => {
+            if (footerRef.current) {
+              footerRef.current.style.pointerEvents = "auto";
+            }
+          },
+          onReverseComplete: () => {
+            if (footerRef.current) {
+              footerRef.current.style.pointerEvents = "none";
+            }
+          },
+        },
+        8.7
+      ).to({}, { duration: 0.6 }, 9.8);
 
       const rafId = window.requestAnimationFrame(() => {
         ScrollTrigger.refresh();
@@ -316,7 +290,6 @@ export function ResearchStepsSection() {
 
       return () => {
         window.cancelAnimationFrame(rafId);
-        mm.revert();
       };
     },
     { scope: rootRef, dependencies: [overlayHost], revertOnUpdate: true }

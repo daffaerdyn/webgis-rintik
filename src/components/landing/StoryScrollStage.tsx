@@ -102,356 +102,309 @@ export function StoryScrollStage() {
         return Number((slotW / mapW).toFixed(3));
       };
 
-      const mm = gsap.matchMedia();
-
       // ====================================================================
-      // MOTION ENABLED: SMOOTH MULTI-PLANE PARALLAX + PINNED CHOREOGRAPHY
+      // SMOOTH MULTI-PLANE PARALLAX + PINNED CHOREOGRAPHY
       // Setiap timeline hanya mengontrol wrapper miliknya sendiri sehingga
       // tidak ada rebutan properti atau lonjakan ("patah-patah") antar tahap.
       // ====================================================================
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        // Initial GPU-composited states
-        gsap.set(mapEntryRef.current, {
-          xPercent: -50,
-          yPercent: -50,
-          x: 0,
-          y: getInitialHiddenY(),
-          scale: 0.92,
-          opacity: 1,
-          force3D: true,
-        });
-        gsap.set(mapShiftRef.current, { x: 0, y: 0, force3D: true });
-        gsap.set(mapCarryRef.current, { x: 0, y: 0, force3D: true });
-        gsap.set(mapInnerScaleRef.current, { scale: 1, force3D: true });
+      // Initial GPU-composited states
+      gsap.set(mapEntryRef.current, {
+        xPercent: -50,
+        yPercent: -50,
+        x: 0,
+        y: getInitialHiddenY(),
+        scale: 0.92,
+        opacity: 1,
+        force3D: true,
+      });
+      gsap.set(mapShiftRef.current, { x: 0, y: 0, force3D: true });
+      gsap.set(mapCarryRef.current, { x: 0, y: 0, force3D: true });
+      gsap.set(mapInnerScaleRef.current, { scale: 1, force3D: true });
 
-        gsap.set(storyTextEntryRef.current, {
-          xPercent: -50,
-          yPercent: -50,
-          x: 0,
-          y: getInitialCenterTextY() + 34,
-          opacity: 0.85,
-          force3D: true,
-        });
-        gsap.set(storyTextShiftRef.current, { x: 0, y: 0, force3D: true });
-        gsap.set(storyTextRedRef.current, { opacity: 1 });
-        gsap.set(storyTextWhiteRef.current, { opacity: 0 });
+      gsap.set(storyTextEntryRef.current, {
+        xPercent: -50,
+        yPercent: -50,
+        x: 0,
+        y: getInitialCenterTextY() + 34,
+        opacity: 0.85,
+        force3D: true,
+      });
+      gsap.set(storyTextShiftRef.current, { x: 0, y: 0, force3D: true });
+      gsap.set(storyTextRedRef.current, { opacity: 1 });
+      gsap.set(storyTextWhiteRef.current, { opacity: 0 });
 
-        gsap.set(photoLeftEntryRef.current, {
-          y: 80,
-          scale: 0.94,
-          rotation: -1.5,
-          force3D: true,
-        });
-        gsap.set(photoRightEntryRef.current, {
-          y: 145,
-          scale: 0.93,
-          rotation: 1.5,
-          force3D: true,
-        });
-        gsap.set([photoLeftRef.current, photoRightRef.current], {
-          x: 0,
-          y: 0,
-          opacity: 1,
-          scale: 1,
-          force3D: true,
-        });
+      gsap.set(photoLeftEntryRef.current, {
+        y: 80,
+        scale: 0.94,
+        rotation: -1.5,
+        force3D: true,
+      });
+      gsap.set(photoRightEntryRef.current, {
+        y: 145,
+        scale: 0.93,
+        rotation: 1.5,
+        force3D: true,
+      });
+      gsap.set([photoLeftRef.current, photoRightRef.current], {
+        x: 0,
+        y: 0,
+        opacity: 1,
+        scale: 1,
+        force3D: true,
+      });
 
-        gsap.set(redBgRef.current, {
-          xPercent: -50,
-          yPercent: -50,
-          x: 0,
-          y: getRedBoxY(),
-          opacity: 0,
-          scale: 0.95,
-          force3D: true,
-        });
+      gsap.set(redBgRef.current, {
+        xPercent: -50,
+        yPercent: -50,
+        x: 0,
+        y: getRedBoxY(),
+        opacity: 0,
+        scale: 0.95,
+        force3D: true,
+      });
 
-        // ------------------------------------------------------------------
-        // TAHAP 1: MULTI-PLANE PARALLAX ENTRY (Hero -> Stage 2)
-        // Foto kiri, foto kanan, teks tengah, & peta kuning meluncur di
-        // kedalaman paralaks berbeda hingga tepat sejajar di "top top".
-        // ------------------------------------------------------------------
-        const entryTl = gsap.timeline({
+      // ------------------------------------------------------------------
+      // TAHAP 1: MULTI-PLANE PARALLAX ENTRY (Hero -> Stage 2)
+      // Foto kiri, foto kanan, teks tengah, & peta kuning meluncur di
+      // kedalaman paralaks berbeda hingga tepat sejajar di "top top".
+      // ------------------------------------------------------------------
+      const entryTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: "top bottom",
+          end: "top top",
+          scrub: true,
+          invalidateOnRefresh: true,
+        },
+      });
+
+      entryTl
+        .fromTo(
+          mapEntryRef.current,
+          { y: getInitialHiddenY, scale: 0.92 },
+          {
+            y: getInitialCenterMapY,
+            scale: 1,
+            ease: "none",
+            duration: 1,
+          },
+          0
+        )
+        .fromTo(
+          photoLeftEntryRef.current,
+          { y: 80, scale: 0.94, rotation: -1.5 },
+          {
+            y: 0,
+            scale: 1,
+            rotation: 0,
+            ease: "none",
+            duration: 1,
+          },
+          0
+        )
+        .fromTo(
+          photoRightEntryRef.current,
+          { y: 145, scale: 0.93, rotation: 1.5 },
+          {
+            y: 0,
+            scale: 1,
+            rotation: 0,
+            ease: "none",
+            duration: 1,
+          },
+          0
+        )
+        .fromTo(
+          storyTextEntryRef.current,
+          {
+            y: () => getInitialCenterTextY() + 34,
+            opacity: 0.85,
+          },
+          {
+            y: getInitialCenterTextY,
+            opacity: 1,
+            ease: "none",
+            duration: 1,
+          },
+          0
+        );
+
+      // ------------------------------------------------------------------
+      // TAHAP 2 -> 4: MASTER PINNED TIMELINE (SS2 -> SS3 -> SS4)
+      // Scrub: true disinkronkan mulus oleh ScrollSmoother tanpa double-lag
+      // dan tanpa dead-zone freeze di awal pin.
+      // ------------------------------------------------------------------
+      const masterTl = gsap.timeline({
+        scrollTrigger: {
+          trigger: containerRef.current,
+          start: "top top",
+          end: getMasterPinDistance,
+          pin: true,
+          pinSpacing: true,
+          anticipatePin: 1,
+          scrub: true,
+          invalidateOnRefresh: true,
+        },
+      });
+
+      // Respon mikro paralaks langsung saat pin dimulai (t = 0 -> 0.25)
+      masterTl
+        .to(
+          photoLeftRef.current,
+          { y: -10, duration: 0.25, ease: "none" },
+          0
+        )
+        .to(
+          photoRightRef.current,
+          { y: 10, duration: 0.25, ease: "none" },
+          0
+        );
+
+      // SS2 -> SS3 (t = 0.2 -> 1.65): Foto memudar dengan pemisahan paralaks,
+      // teks & peta bergeser ke kiri dan kanan
+      masterTl
+        .to(
+          photoLeftRef.current,
+          {
+            x: -36,
+            y: -56,
+            opacity: 0,
+            scale: 0.91,
+            duration: 1.0,
+            ease: "power1.inOut",
+          },
+          0.2
+        )
+        .to(
+          photoRightRef.current,
+          {
+            x: 36,
+            y: 56,
+            opacity: 0,
+            scale: 0.91,
+            duration: 1.0,
+            ease: "power1.inOut",
+          },
+          0.2
+        )
+        .to(
+          storyTextShiftRef.current,
+          {
+            x: getShiftTextX,
+            duration: 1.4,
+            ease: "sine.inOut",
+          },
+          0.25
+        )
+        .to(
+          mapShiftRef.current,
+          {
+            x: getShiftMapX,
+            duration: 1.4,
+            ease: "sine.inOut",
+          },
+          0.25
+        );
+
+      // SS3 -> SS4 (t = 1.25 -> 2.35): Kontainer merah masuk & teks
+      // crossfade GPU-only dari merah ke putih tanpa repaint CPU
+      masterTl
+        .fromTo(
+          redBgRef.current,
+          { y: getRedBoxY, opacity: 0, scale: 0.95 },
+          {
+            y: getRedBoxY,
+            opacity: 1,
+            scale: 1,
+            duration: 1.1,
+            ease: "power2.out",
+          },
+          1.25
+        )
+        .to(
+          storyTextRedRef.current,
+          {
+            opacity: 0,
+            duration: 0.95,
+            ease: "power1.out",
+          },
+          1.3
+        )
+        .to(
+          storyTextWhiteRef.current,
+          {
+            opacity: 1,
+            duration: 0.95,
+            ease: "power1.out",
+          },
+          1.3
+        )
+        // SS4 hold singkat (2.35 -> 2.7)
+        .to({}, { duration: 0.35 }, 2.35);
+
+      // ------------------------------------------------------------------
+      // TAHAP LANJUTAN (DESKTOP >= 1024px): TRANSFER PETA KE #fungsi
+      // y linear ("none") mengimbangi scroll keluar section 1:1 tanpa
+      // tersendat; x & scale meluncur melengkung mulus ke #fungsi-map-slot.
+      // ------------------------------------------------------------------
+      const desktopMm = gsap.matchMedia();
+      desktopMm.add("(min-width: 1024px)", () => {
+        const toFungsiTl = gsap.timeline({
           scrollTrigger: {
             trigger: containerRef.current,
-            start: "top bottom",
-            end: "top top",
+            start: () =>
+              masterTl.scrollTrigger
+                ? masterTl.scrollTrigger.end
+                : "bottom top",
+            end: () =>
+              masterTl.scrollTrigger
+                ? masterTl.scrollTrigger.end + getTargetDeltaY()
+                : "+=700",
             scrub: true,
             invalidateOnRefresh: true,
           },
         });
 
-        entryTl
+        toFungsiTl
           .fromTo(
-            mapEntryRef.current,
-            { y: getInitialHiddenY, scale: 0.92 },
+            mapCarryRef.current,
+            { y: 0 },
             {
-              y: getInitialCenterMapY,
-              scale: 1,
+              y: () => getTargetDeltaY() - getInitialCenterMapY(),
               ease: "none",
-              duration: 1,
-            },
-            0
-          )
-          .fromTo(
-            photoLeftEntryRef.current,
-            { y: 80, scale: 0.94, rotation: -1.5 },
-            {
-              y: 0,
-              scale: 1,
-              rotation: 0,
-              ease: "none",
-              duration: 1,
+              immediateRender: false,
             },
             0
           )
           .fromTo(
-            photoRightEntryRef.current,
-            { y: 145, scale: 0.93, rotation: 1.5 },
+            mapCarryRef.current,
+            { x: 0 },
             {
-              y: 0,
-              scale: 1,
-              rotation: 0,
-              ease: "none",
-              duration: 1,
-            },
-            0
-          )
-          .fromTo(
-            storyTextEntryRef.current,
-            {
-              y: () => getInitialCenterTextY() + 34,
-              opacity: 0.85,
-            },
-            {
-              y: getInitialCenterTextY,
-              opacity: 1,
-              ease: "none",
-              duration: 1,
-            },
-            0
-          );
-
-        // ------------------------------------------------------------------
-        // TAHAP 2 -> 4: MASTER PINNED TIMELINE (SS2 -> SS3 -> SS4)
-        // Scrub: true disinkronkan mulus oleh ScrollSmoother tanpa double-lag
-        // dan tanpa dead-zone freeze di awal pin.
-        // ------------------------------------------------------------------
-        const masterTl = gsap.timeline({
-          scrollTrigger: {
-            trigger: containerRef.current,
-            start: "top top",
-            end: getMasterPinDistance,
-            pin: true,
-            pinSpacing: true,
-            anticipatePin: 1,
-            scrub: true,
-            invalidateOnRefresh: true,
-          },
-        });
-
-        // Respon mikro paralaks langsung saat pin dimulai (t = 0 -> 0.25)
-        masterTl
-          .to(
-            photoLeftRef.current,
-            { y: -10, duration: 0.25, ease: "none" },
-            0
-          )
-          .to(
-            photoRightRef.current,
-            { y: 10, duration: 0.25, ease: "none" },
-            0
-          );
-
-        // SS2 -> SS3 (t = 0.2 -> 1.65): Foto memudar dengan pemisahan paralaks,
-        // teks & peta bergeser ke kiri dan kanan
-        masterTl
-          .to(
-            photoLeftRef.current,
-            {
-              x: -36,
-              y: -56,
-              opacity: 0,
-              scale: 0.91,
-              duration: 1.0,
-              ease: "power1.inOut",
-            },
-            0.2
-          )
-          .to(
-            photoRightRef.current,
-            {
-              x: 36,
-              y: 56,
-              opacity: 0,
-              scale: 0.91,
-              duration: 1.0,
-              ease: "power1.inOut",
-            },
-            0.2
-          )
-          .to(
-            storyTextShiftRef.current,
-            {
-              x: getShiftTextX,
-              duration: 1.4,
+              x: () => -getShiftMapX(),
               ease: "sine.inOut",
+              immediateRender: false,
             },
-            0.25
+            0
           )
-          .to(
-            mapShiftRef.current,
-            {
-              x: getShiftMapX,
-              duration: 1.4,
-              ease: "sine.inOut",
-            },
-            0.25
-          );
-
-        // SS3 -> SS4 (t = 1.25 -> 2.35): Kontainer merah masuk & teks
-        // crossfade GPU-only dari merah ke putih tanpa repaint CPU
-        masterTl
           .fromTo(
-            redBgRef.current,
-            { y: getRedBoxY, opacity: 0, scale: 0.95 },
+            mapInnerScaleRef.current,
+            { scale: 1 },
             {
-              y: getRedBoxY,
-              opacity: 1,
-              scale: 1,
-              duration: 1.1,
-              ease: "power2.out",
+              scale: getTargetScale,
+              ease: "sine.inOut",
+              immediateRender: false,
             },
-            1.25
-          )
-          .to(
-            storyTextRedRef.current,
-            {
-              opacity: 0,
-              duration: 0.95,
-              ease: "power1.out",
-            },
-            1.3
-          )
-          .to(
-            storyTextWhiteRef.current,
-            {
-              opacity: 1,
-              duration: 0.95,
-              ease: "power1.out",
-            },
-            1.3
-          )
-          // SS4 hold singkat (2.35 -> 2.7)
-          .to({}, { duration: 0.35 }, 2.35);
-
-        // ------------------------------------------------------------------
-        // TAHAP LANJUTAN (DESKTOP >= 1024px): TRANSFER PETA KE #fungsi
-        // y linear ("none") mengimbangi scroll keluar section 1:1 tanpa
-        // tersendat; x & scale meluncur melengkung mulus ke #fungsi-map-slot.
-        // ------------------------------------------------------------------
-        const desktopMm = gsap.matchMedia();
-        desktopMm.add("(min-width: 1024px)", () => {
-          const toFungsiTl = gsap.timeline({
-            scrollTrigger: {
-              trigger: containerRef.current,
-              start: () =>
-                masterTl.scrollTrigger
-                  ? masterTl.scrollTrigger.end
-                  : "bottom top",
-              end: () =>
-                masterTl.scrollTrigger
-                  ? masterTl.scrollTrigger.end + getTargetDeltaY()
-                  : "+=700",
-              scrub: true,
-              invalidateOnRefresh: true,
-            },
-          });
-
-          toFungsiTl
-            .fromTo(
-              mapCarryRef.current,
-              { y: 0 },
-              {
-                y: () => getTargetDeltaY() - getInitialCenterMapY(),
-                ease: "none",
-                immediateRender: false,
-              },
-              0
-            )
-            .fromTo(
-              mapCarryRef.current,
-              { x: 0 },
-              {
-                x: () => -getShiftMapX(),
-                ease: "sine.inOut",
-                immediateRender: false,
-              },
-              0
-            )
-            .fromTo(
-              mapInnerScaleRef.current,
-              { scale: 1 },
-              {
-                scale: getTargetScale,
-                ease: "sine.inOut",
-                immediateRender: false,
-              },
-              0
-            );
-
-          return () => {
-            gsap.set(mapCarryRef.current, { x: 0, y: 0 });
-            gsap.set(mapInnerScaleRef.current, { scale: 1 });
-          };
-        });
+            0
+          );
 
         return () => {
-          desktopMm.revert();
+          gsap.set(mapCarryRef.current, { x: 0, y: 0 });
+          gsap.set(mapInnerScaleRef.current, { scale: 1 });
         };
       });
 
-      // ====================================================================
-      // REDUCED MOTION FALLBACK: Tampilkan kondisi akhir Stage 4 statis & jelas
-      // ====================================================================
-      mm.add("(prefers-reduced-motion: reduce)", () => {
-        gsap.set([photoLeftEntryRef.current, photoRightEntryRef.current], {
-          opacity: 0,
-          y: 0,
-        });
-        gsap.set(redBgRef.current, {
-          xPercent: -50,
-          yPercent: -50,
-          x: 0,
-          y: getRedBoxY(),
-          opacity: 1,
-          scale: 1,
-        });
-        gsap.set(storyTextEntryRef.current, {
-          xPercent: -50,
-          yPercent: -50,
-          x: 0,
-          y: getInitialCenterTextY(),
-          opacity: 1,
-        });
-        gsap.set(storyTextShiftRef.current, { x: getShiftTextX() });
-        gsap.set(storyTextRedRef.current, { opacity: 0 });
-        gsap.set(storyTextWhiteRef.current, { opacity: 1 });
-        gsap.set(mapEntryRef.current, {
-          xPercent: -50,
-          yPercent: -50,
-          x: 0,
-          y: getInitialCenterMapY(),
-          scale: 1,
-          opacity: 1,
-        });
-        gsap.set(mapShiftRef.current, { x: getShiftMapX() });
-        gsap.set(mapCarryRef.current, { x: 0, y: 0 });
-        gsap.set(mapInnerScaleRef.current, { scale: 1 });
-      });
-
       return () => {
-        mm.revert();
+        desktopMm.revert();
       };
     },
     { scope: stageRootRef }

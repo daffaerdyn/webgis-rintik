@@ -25,38 +25,31 @@ export function LandingSmoothScroll({ children }: LandingSmoothScrollProps) {
     () => {
       if (!wrapperRef.current || !contentRef.current) return;
 
-      const mm = gsap.matchMedia();
       let isDisposed = false;
 
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const smoother = ScrollSmoother.create({
-          wrapper: wrapperRef.current,
-          content: contentRef.current,
-          smooth: 1.05,
-          smoothTouch: false,
-          effects: true,
-          ignoreMobileResize: true,
-          onUpdate: () => {
-            window.dispatchEvent(new Event("rintik:scroll-update"));
-          },
-        });
-
-        if (typeof document !== "undefined" && document.fonts?.ready) {
-          document.fonts.ready.then(() => {
-            if (!isDisposed) {
-              ScrollTrigger.refresh();
-            }
-          });
-        }
-
-        return () => {
-          smoother.kill();
-        };
+      const smoother = ScrollSmoother.create({
+        wrapper: wrapperRef.current,
+        content: contentRef.current,
+        smooth: 1.05,
+        smoothTouch: false,
+        effects: true,
+        ignoreMobileResize: true,
+        onUpdate: () => {
+          window.dispatchEvent(new Event("rintik:scroll-update"));
+        },
       });
+
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        document.fonts.ready.then(() => {
+          if (!isDisposed) {
+            ScrollTrigger.refresh();
+          }
+        });
+      }
 
       return () => {
         isDisposed = true;
-        mm.revert();
+        smoother.kill();
       };
     },
     { scope: wrapperRef }

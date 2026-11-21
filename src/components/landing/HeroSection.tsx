@@ -85,48 +85,43 @@ export function HeroSection({}: HeroSectionProps = {}) {
   useGSAP(
     () => {
       if (!heroRef.current) return;
-      const mm = gsap.matchMedia();
 
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        if (bgParallaxRef.current) {
-          gsap.fromTo(
-            bgParallaxRef.current,
-            { yPercent: -5 },
-            {
-              yPercent: 11,
-              ease: "none",
-              scrollTrigger: {
-                trigger: heroRef.current,
-                start: "top top",
-                end: "bottom top",
-                scrub: true,
-                invalidateOnRefresh: true,
-              },
-            }
-          );
-        }
+      if (bgParallaxRef.current) {
+        gsap.fromTo(
+          bgParallaxRef.current,
+          { yPercent: -5 },
+          {
+            yPercent: 11,
+            ease: "none",
+            scrollTrigger: {
+              trigger: heroRef.current,
+              start: "top top",
+              end: "bottom top",
+              scrub: true,
+              invalidateOnRefresh: true,
+            },
+          }
+        );
+      }
 
-        if (bodyParallaxRef.current) {
-          gsap.fromTo(
-            bodyParallaxRef.current,
-            { y: 0, opacity: 1 },
-            {
-              y: -36,
-              opacity: 0.82,
-              ease: "none",
-              scrollTrigger: {
-                trigger: heroRef.current,
-                start: "top top",
-                end: "bottom top",
-                scrub: true,
-                invalidateOnRefresh: true,
-              },
-            }
-          );
-        }
-      });
-
-      return () => mm.revert();
+      if (bodyParallaxRef.current) {
+        gsap.fromTo(
+          bodyParallaxRef.current,
+          { y: 0, opacity: 1 },
+          {
+            y: -36,
+            opacity: 0.82,
+            ease: "none",
+            scrollTrigger: {
+              trigger: heroRef.current,
+              start: "top top",
+              end: "bottom top",
+              scrub: true,
+              invalidateOnRefresh: true,
+            },
+          }
+        );
+      }
     },
     { scope: heroRef }
   );

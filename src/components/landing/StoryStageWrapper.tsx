@@ -45,29 +45,22 @@ export function StoryStageWrapper() {
         },
       });
 
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.fromTo(
-          sphereRef.current,
-          { y: 48, scale: 1.04 },
-          {
-            y: -48,
-            scale: 0.98,
-            ease: "none",
-            scrollTrigger: {
-              trigger: wrapperRef.current,
-              start: "top bottom",
-              end: "bottom top",
-              scrub: true,
-              invalidateOnRefresh: true,
-            },
-          }
-        );
-      });
-
-      return () => {
-        mm.revert();
-      };
+      gsap.fromTo(
+        sphereRef.current,
+        { y: 48, scale: 1.04 },
+        {
+          y: -48,
+          scale: 0.98,
+          ease: "none",
+          scrollTrigger: {
+            trigger: wrapperRef.current,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: true,
+            invalidateOnRefresh: true,
+          },
+        }
+      );
     },
     { scope: wrapperRef, dependencies: [backdropHost], revertOnUpdate: true }
   );
